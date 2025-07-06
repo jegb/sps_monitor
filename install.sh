@@ -16,15 +16,18 @@ python3 -m venv venv
 source venv/bin/activate
 
 echo "[3.3/5] Installing required Python packages inside venv..."
-pip install --break-system-packages adafruit-circuitpython-dht Adafruit_DHT paho-mqtt RPi.GPIO
+pip install --break-system-packages adafruit-circuitpython-dht paho-mqtt RPi.GPIO
 
 echo "[3.4/5] Verifying Python packages installed..."
-REQUIRED_PKG=(paho-mqtt adafruit-circuitpython-dht Adafruit_DHT RPi.GPIO)
+REQUIRED_PKG=(paho-mqtt adafruit-circuitpython-dht RPi.GPIO)
 for pkg in "${REQUIRED_PKG[@]}"; do
   pip show "$pkg" > /dev/null || echo "Warning: $pkg not found"
 done
 
 echo "[4/5] Using prebuilt SPS30 driver library included in the distribution."
+
+echo "[4.5/5] Installing libgpiod2 for GPIO access..."
+sudo apt install -y libgpiod2
 
 echo "[5/5] Done. Activate virtual environment with 'source venv/bin/activate' before running sensor_reader.py"
 
