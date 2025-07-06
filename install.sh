@@ -33,8 +33,16 @@ else
   cd embedded-sps
   make release
 
-  echo "[5/7] Copying built library to project folder..."
-  cp release/libsps30.so -v ~/sps30_monitor/c_sps30_i2c/
+  echo "[5/7] Locating built libsps30.so..."
+  DRIVER_BUILD_PATH=$(find ~/embedded-sps/release -type f -name "libsps30.so" | head -n1)
+
+  if [ -f "$DRIVER_BUILD_PATH" ]; then
+    echo "[5/7] Copying $DRIVER_BUILD_PATH to ~/sps30_monitor/c_sps30_i2c/"
+    cp "$DRIVER_BUILD_PATH" -v ~/sps30_monitor/c_sps30_i2c/
+  else
+    echo "❌ [5/7] libsps30.so not found. Build may have failed or output path changed."
+    exit 1
+  fi
 fi
 
 echo "[6/7] Cleaning up build directory..."

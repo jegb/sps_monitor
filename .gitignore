@@ -1,0 +1,6 @@
+# Ignore virtual environment
+venv/
+
+# Ignore local build of SPS30 driver
+c_sps30_i2c/libsps30.so
+embedded-sps/
