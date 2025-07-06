@@ -1,7 +1,9 @@
+import os
 import ctypes
 import time
 
-sps30 = ctypes.CDLL('./libsps30.so')
+lib_path = os.path.join(os.path.dirname(__file__), 'libsps30.so')
+sps30 = ctypes.CDLL(lib_path)
 
 class SPS30Measurement(ctypes.Structure):
     _fields_ = [
