@@ -1,7 +1,15 @@
-import Adafruit_DHT
-from config import DHT11_PIN
+import time
+import board
+import adafruit_dht
 
-def get_readings():
-    sensor = Adafruit_DHT.DHT11
-    humidity, temperature = Adafruit_DHT.read_retry(sensor, DHT11_PIN)
-    return round(temperature, 2), round(humidity, 2)
+# Initialize the DHT device, with data pin connected to GPIO4
+dht_device = adafruit_dht.DHT11(board.D4)
+
+def read():
+    try:
+        temperature_c = dht_device.temperature
+        humidity = dht_device.humidity
+        return temperature_c, humidity
+    except RuntimeError as error:
+        print(f"Reading from DHT sensor failed: {error.args[0]}")
+        return None, None
