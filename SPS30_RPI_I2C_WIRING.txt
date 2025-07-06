@@ -1,0 +1,15 @@
+╔═════════════════════════════════════════════════════╗
+║         SPS30 I²C Wiring to Raspberry Pi (3/4)      ║
+╠══════════════╦════════════════════╦═════════════════╣
+║ SPS30 Signal ║ Raspberry Pi Pin   ║ Notes           ║
+╠══════════════╬════════════════════╬═════════════════╣
+║ VDD          ║ Pin 2 (5V)         ║ 5V Power ONLY   ║
+║ GND          ║ Pin 6 (GND)        ║ Shared Ground   ║
+║ SDA          ║ Pin 3 (GPIO2 / SDA)║ I²C Data Line   ║
+║ SCL          ║ Pin 5 (GPIO3 / SCL)║ I²C Clock Line  ║
+║ SEL          ║ Pin 9 (GND)        ║ Force I²C Mode  ║
+╚══════════════╩════════════════════╩═════════════════╝
+
+⚠️ DO NOT connect VDD to 3.3V (Pin 1) – it will not power the sensor reliably.
+
+Logic level shifting is NOT needed. The SPS30 I²C pins are 3.3V tolerant.

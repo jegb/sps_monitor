@@ -1,0 +1,174 @@
+{
+  "name": "SPS30 Dashboard with Mean Overlay",
+  "nodes": [
+    {
+      "id": "dropdown_time_window",
+      "type": "ui_dropdown",
+      "z": "flow_2",
+      "name": "Select Time Window",
+      "label": "Time Range",
+      "tooltip": "",
+      "place": "Select time window",
+      "group": "ui_group",
+      "order": 1,
+      "width": 6,
+      "height": 1,
+      "passthru": true,
+      "options": [
+        {
+          "label": "Last 5 minutes",
+          "value": "5min"
+        },
+        {
+          "label": "Last 30 minutes",
+          "value": "30min"
+        },
+        {
+          "label": "Last hour",
+          "value": "1h"
+        },
+        {
+          "label": "Last 24 hours",
+          "value": "24h"
+        }
+      ],
+      "x": 140,
+      "y": 60,
+      "wires": [
+        [
+          "set_time_window"
+        ]
+      ]
+    },
+    {
+      "id": "set_time_window",
+      "type": "function",
+      "z": "flow_2",
+      "name": "Store Time Window",
+      "func": "flow.set('time_window', msg.payload);\nreturn msg;",
+      "x": 360,
+      "y": 60,
+      "wires": [
+        []
+      ]
+    },
+    {
+      "id": "trigger_query",
+      "type": "inject",
+      "z": "flow_2",
+      "name": "Refresh Chart",
+      "props": [],
+      "repeat": "60",
+      "crontab": "",
+      "once": true,
+      "onceDelay": 0.5,
+      "topic": "",
+      "x": 140,
+      "y": 120,
+      "wires": [
+        [
+          "build_sql_query"
+        ]
+      ]
+    },
+    {
+      "id": "build_sql_query",
+      "type": "function",
+      "z": "flow_2",
+      "name": "Build SQL for Time Window",
+      "func": "let window = flow.get('time_window') || '1h';\nlet durationMap = {\n    \"5min\": \"-5 minutes\",\n    \"30min\": \"-30 minutes\",\n    \"1h\": \"-1 hour\",\n    \"24h\": \"-1 day\"\n};\nlet duration = durationMap[window] || \"-1 hour\";\n\nmsg.topic = `SELECT timestamp, pm25 FROM sps30_data WHERE timestamp > datetime('now', '${duration}')`;\nreturn msg;",
+      "outputs": 1,
+      "x": 400,
+      "y": 120,
+      "wires": [
+        [
+          "sqlite_query"
+        ]
+      ]
+    },
+    {
+      "id": "sqlite_query",
+      "type": "sqlite",
+      "z": "flow_2",
+      "mydb": "sqlite_config",
+      "name": "Query PM2.5 Data",
+      "x": 620,
+      "y": 120,
+      "wires": [
+        [
+          "process_data"
+        ]
+      ]
+    },
+    {
+      "id": "process_data",
+      "type": "function",
+      "z": "flow_2",
+      "name": "Mean & Chart Format",
+      "func": "let data = msg.payload;\nif (!data || data.length === 0) return null;\n\nlet sum = 0;\ndata.forEach(d => sum += d.pm25);\nlet mean = (sum / data.length).toFixed(2);\n\nmsg.payload = {\n  series: [\"PM2.5\", \"Mean\"],\n  data: [\n    data.map(d => d.pm25),\n    data.map(d => parseFloat(mean))\n  ],\n  labels: data.map(d => d.timestamp)\n};\nreturn msg;",
+      "outputs": 1,
+      "x": 850,
+      "y": 120,
+      "wires": [
+        [
+          "advanced_chart"
+        ]
+      ]
+    },
+    {
+      "id": "advanced_chart",
+      "type": "ui_chart",
+      "z": "flow_2",
+      "name": "Advanced PM2.5 Chart",
+      "group": "ui_group",
+      "order": 2,
+      "width": 12,
+      "height": 6,
+      "label": "PM2.5 with Mean Overlay",
+      "chartType": "line",
+      "legend": "true",
+      "xformat": "HH:mm:ss",
+      "interpolate": "linear",
+      "nodata": "No data",
+      "ymin": "0",
+      "ymax": "200",
+      "removeOlder": "24",
+      "removeOlderUnit": "3600",
+      "colors": [
+        "#00b500",
+        "#777777"
+      ],
+      "outputs": 1,
+      "x": 1100,
+      "y": 120,
+      "wires": [
+        []
+      ]
+    },
+    {
+      "id": "ui_group",
+      "type": "ui_group",
+      "z": "",
+      "name": "Air Quality",
+      "tab": "ui_tab",
+      "order": 1,
+      "disp": true,
+      "width": 12
+    },
+    {
+      "id": "ui_tab",
+      "type": "ui_tab",
+      "z": "",
+      "name": "Dashboard",
+      "icon": "dashboard",
+      "order": 1
+    },
+    {
+      "id": "sqlite_config",
+      "type": "sqlitedb",
+      "z": "",
+      "db": "/home/pi/sps30_data.db",
+      "mode": "RW"
+    }
+  ]
+}

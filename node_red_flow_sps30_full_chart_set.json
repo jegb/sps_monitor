@@ -1,0 +1,463 @@
+{
+  "name": "SPS30 Dashboard Full Chart Set",
+  "nodes": [
+    {
+      "id": "ui_group_main",
+      "type": "ui_group",
+      "name": "Main Dashboard",
+      "tab": "ui_tab",
+      "order": 1,
+      "disp": true,
+      "width": 12
+    },
+    {
+      "id": "ui_tab",
+      "type": "ui_tab",
+      "name": "Dashboard",
+      "icon": "dashboard",
+      "order": 1
+    },
+    {
+      "id": "note_placeholder",
+      "type": "comment",
+      "z": "flow_3",
+      "name": "TODO: Add drill-down chart views per metric here"
+    },
+    {
+      "id": "dropdown_pm25",
+      "type": "ui_dropdown",
+      "z": "flow_3",
+      "name": "PM25 Range Select",
+      "label": "Time Range for PM25",
+      "group": "ui_group_main",
+      "order": 10,
+      "width": 6,
+      "height": 1,
+      "options": [
+        {
+          "label": "Last 5 minutes",
+          "value": "5min"
+        },
+        {
+          "label": "Last 30 minutes",
+          "value": "30min"
+        },
+        {
+          "label": "Last hour",
+          "value": "1h"
+        },
+        {
+          "label": "Last 24 hours",
+          "value": "24h"
+        }
+      ],
+      "passthru": true,
+      "x": 160,
+      "y": 290,
+      "wires": [
+        [
+          "build_sql_pm25"
+        ]
+      ]
+    },
+    {
+      "id": "build_sql_pm25",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Build SQL for PM25",
+      "func": "\nlet durationMap = {\n    \"5min\": \"-5 minutes\",\n    \"30min\": \"-30 minutes\",\n    \"1h\": \"-1 hour\",\n    \"24h\": \"-1 day\"\n};\nlet range = msg.payload || \"1h\";\nlet since = durationMap[range] || \"-1 hour\";\nmsg.topic = `SELECT timestamp, pm25 FROM sps30_data WHERE timestamp > datetime('now', '${since}')`;\nreturn msg;\n",
+      "outputs": 1,
+      "x": 360,
+      "y": 290,
+      "wires": [
+        [
+          "sqlite_pm25"
+        ]
+      ]
+    },
+    {
+      "id": "sqlite_pm25",
+      "type": "sqlite",
+      "z": "flow_3",
+      "name": "Query PM25",
+      "mydb": "sqlite_config",
+      "x": 560,
+      "y": 290,
+      "wires": [
+        [
+          "format_pm25"
+        ]
+      ]
+    },
+    {
+      "id": "format_pm25",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Format PM25 Data",
+      "func": "\nlet data = msg.payload;\nif (!data.length) return null;\n\nlet sum = data.reduce((acc, row) => acc + row['pm25'], 0);\nlet mean = (sum / data.length).toFixed(2);\n\nmsg.payload = {\n    series: [\"PM25\", \"Mean\"],\n    data: [\n        data.map(row => row['pm25']),\n        data.map(() => parseFloat(mean))\n    ],\n    labels: data.map(row => row.timestamp)\n};\nreturn msg;\n",
+      "outputs": 1,
+      "x": 780,
+      "y": 290,
+      "wires": [
+        [
+          "chart_pm25"
+        ]
+      ]
+    },
+    {
+      "id": "chart_pm25",
+      "type": "ui_chart",
+      "z": "flow_3",
+      "name": "PM25 Chart",
+      "group": "ui_group_main",
+      "order": 11,
+      "width": 12,
+      "height": 6,
+      "label": "PM25 over Time",
+      "chartType": "line",
+      "legend": "true",
+      "xformat": "HH:mm:ss",
+      "interpolate": "linear",
+      "nodata": "No data",
+      "ymin": "0",
+      "ymax": "auto",
+      "removeOlder": 24,
+      "removeOlderUnit": "3600",
+      "colors": [
+        "#00b500",
+        "#666666"
+      ],
+      "outputs": 1,
+      "x": 1000,
+      "y": 290,
+      "wires": []
+    },
+    {
+      "id": "dropdown_pm10",
+      "type": "ui_dropdown",
+      "z": "flow_3",
+      "name": "PM10 Range Select",
+      "label": "Time Range for PM10",
+      "group": "ui_group_main",
+      "order": 10,
+      "width": 6,
+      "height": 1,
+      "options": [
+        {
+          "label": "Last 5 minutes",
+          "value": "5min"
+        },
+        {
+          "label": "Last 30 minutes",
+          "value": "30min"
+        },
+        {
+          "label": "Last hour",
+          "value": "1h"
+        },
+        {
+          "label": "Last 24 hours",
+          "value": "24h"
+        }
+      ],
+      "passthru": true,
+      "x": 160,
+      "y": 340,
+      "wires": [
+        [
+          "build_sql_pm10"
+        ]
+      ]
+    },
+    {
+      "id": "build_sql_pm10",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Build SQL for PM10",
+      "func": "\nlet durationMap = {\n    \"5min\": \"-5 minutes\",\n    \"30min\": \"-30 minutes\",\n    \"1h\": \"-1 hour\",\n    \"24h\": \"-1 day\"\n};\nlet range = msg.payload || \"1h\";\nlet since = durationMap[range] || \"-1 hour\";\nmsg.topic = `SELECT timestamp, pm10 FROM sps30_data WHERE timestamp > datetime('now', '${since}')`;\nreturn msg;\n",
+      "outputs": 1,
+      "x": 360,
+      "y": 340,
+      "wires": [
+        [
+          "sqlite_pm10"
+        ]
+      ]
+    },
+    {
+      "id": "sqlite_pm10",
+      "type": "sqlite",
+      "z": "flow_3",
+      "name": "Query PM10",
+      "mydb": "sqlite_config",
+      "x": 560,
+      "y": 340,
+      "wires": [
+        [
+          "format_pm10"
+        ]
+      ]
+    },
+    {
+      "id": "format_pm10",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Format PM10 Data",
+      "func": "\nlet data = msg.payload;\nif (!data.length) return null;\n\nlet sum = data.reduce((acc, row) => acc + row['pm10'], 0);\nlet mean = (sum / data.length).toFixed(2);\n\nmsg.payload = {\n    series: [\"PM10\", \"Mean\"],\n    data: [\n        data.map(row => row['pm10']),\n        data.map(() => parseFloat(mean))\n    ],\n    labels: data.map(row => row.timestamp)\n};\nreturn msg;\n",
+      "outputs": 1,
+      "x": 780,
+      "y": 340,
+      "wires": [
+        [
+          "chart_pm10"
+        ]
+      ]
+    },
+    {
+      "id": "chart_pm10",
+      "type": "ui_chart",
+      "z": "flow_3",
+      "name": "PM10 Chart",
+      "group": "ui_group_main",
+      "order": 11,
+      "width": 12,
+      "height": 6,
+      "label": "PM10 over Time",
+      "chartType": "line",
+      "legend": "true",
+      "xformat": "HH:mm:ss",
+      "interpolate": "linear",
+      "nodata": "No data",
+      "ymin": "0",
+      "ymax": "auto",
+      "removeOlder": 24,
+      "removeOlderUnit": "3600",
+      "colors": [
+        "#00b500",
+        "#666666"
+      ],
+      "outputs": 1,
+      "x": 1000,
+      "y": 340,
+      "wires": []
+    },
+    {
+      "id": "dropdown_temp",
+      "type": "ui_dropdown",
+      "z": "flow_3",
+      "name": "Temp Range Select",
+      "label": "Time Range for Temp",
+      "group": "ui_group_main",
+      "order": 10,
+      "width": 6,
+      "height": 1,
+      "options": [
+        {
+          "label": "Last 5 minutes",
+          "value": "5min"
+        },
+        {
+          "label": "Last 30 minutes",
+          "value": "30min"
+        },
+        {
+          "label": "Last hour",
+          "value": "1h"
+        },
+        {
+          "label": "Last 24 hours",
+          "value": "24h"
+        }
+      ],
+      "passthru": true,
+      "x": 160,
+      "y": 390,
+      "wires": [
+        [
+          "build_sql_temp"
+        ]
+      ]
+    },
+    {
+      "id": "build_sql_temp",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Build SQL for Temp",
+      "func": "\nlet durationMap = {\n    \"5min\": \"-5 minutes\",\n    \"30min\": \"-30 minutes\",\n    \"1h\": \"-1 hour\",\n    \"24h\": \"-1 day\"\n};\nlet range = msg.payload || \"1h\";\nlet since = durationMap[range] || \"-1 hour\";\nmsg.topic = `SELECT timestamp, temp FROM sps30_data WHERE timestamp > datetime('now', '${since}')`;\nreturn msg;\n",
+      "outputs": 1,
+      "x": 360,
+      "y": 390,
+      "wires": [
+        [
+          "sqlite_temp"
+        ]
+      ]
+    },
+    {
+      "id": "sqlite_temp",
+      "type": "sqlite",
+      "z": "flow_3",
+      "name": "Query Temp",
+      "mydb": "sqlite_config",
+      "x": 560,
+      "y": 390,
+      "wires": [
+        [
+          "format_temp"
+        ]
+      ]
+    },
+    {
+      "id": "format_temp",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Format Temp Data",
+      "func": "\nlet data = msg.payload;\nif (!data.length) return null;\n\nlet sum = data.reduce((acc, row) => acc + row['temp'], 0);\nlet mean = (sum / data.length).toFixed(2);\n\nmsg.payload = {\n    series: [\"Temp\", \"Mean\"],\n    data: [\n        data.map(row => row['temp']),\n        data.map(() => parseFloat(mean))\n    ],\n    labels: data.map(row => row.timestamp)\n};\nreturn msg;\n",
+      "outputs": 1,
+      "x": 780,
+      "y": 390,
+      "wires": [
+        [
+          "chart_temp"
+        ]
+      ]
+    },
+    {
+      "id": "chart_temp",
+      "type": "ui_chart",
+      "z": "flow_3",
+      "name": "Temp Chart",
+      "group": "ui_group_main",
+      "order": 11,
+      "width": 12,
+      "height": 6,
+      "label": "Temp over Time",
+      "chartType": "line",
+      "legend": "true",
+      "xformat": "HH:mm:ss",
+      "interpolate": "linear",
+      "nodata": "No data",
+      "ymin": "0",
+      "ymax": "auto",
+      "removeOlder": 24,
+      "removeOlderUnit": "3600",
+      "colors": [
+        "#00b500",
+        "#666666"
+      ],
+      "outputs": 1,
+      "x": 1000,
+      "y": 390,
+      "wires": []
+    },
+    {
+      "id": "dropdown_humidity",
+      "type": "ui_dropdown",
+      "z": "flow_3",
+      "name": "Humidity Range Select",
+      "label": "Time Range for Humidity",
+      "group": "ui_group_main",
+      "order": 10,
+      "width": 6,
+      "height": 1,
+      "options": [
+        {
+          "label": "Last 5 minutes",
+          "value": "5min"
+        },
+        {
+          "label": "Last 30 minutes",
+          "value": "30min"
+        },
+        {
+          "label": "Last hour",
+          "value": "1h"
+        },
+        {
+          "label": "Last 24 hours",
+          "value": "24h"
+        }
+      ],
+      "passthru": true,
+      "x": 160,
+      "y": 440,
+      "wires": [
+        [
+          "build_sql_humidity"
+        ]
+      ]
+    },
+    {
+      "id": "build_sql_humidity",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Build SQL for Humidity",
+      "func": "\nlet durationMap = {\n    \"5min\": \"-5 minutes\",\n    \"30min\": \"-30 minutes\",\n    \"1h\": \"-1 hour\",\n    \"24h\": \"-1 day\"\n};\nlet range = msg.payload || \"1h\";\nlet since = durationMap[range] || \"-1 hour\";\nmsg.topic = `SELECT timestamp, humidity FROM sps30_data WHERE timestamp > datetime('now', '${since}')`;\nreturn msg;\n",
+      "outputs": 1,
+      "x": 360,
+      "y": 440,
+      "wires": [
+        [
+          "sqlite_humidity"
+        ]
+      ]
+    },
+    {
+      "id": "sqlite_humidity",
+      "type": "sqlite",
+      "z": "flow_3",
+      "name": "Query Humidity",
+      "mydb": "sqlite_config",
+      "x": 560,
+      "y": 440,
+      "wires": [
+        [
+          "format_humidity"
+        ]
+      ]
+    },
+    {
+      "id": "format_humidity",
+      "type": "function",
+      "z": "flow_3",
+      "name": "Format Humidity Data",
+      "func": "\nlet data = msg.payload;\nif (!data.length) return null;\n\nlet sum = data.reduce((acc, row) => acc + row['humidity'], 0);\nlet mean = (sum / data.length).toFixed(2);\n\nmsg.payload = {\n    series: [\"Humidity\", \"Mean\"],\n    data: [\n        data.map(row => row['humidity']),\n        data.map(() => parseFloat(mean))\n    ],\n    labels: data.map(row => row.timestamp)\n};\nreturn msg;\n",
+      "outputs": 1,
+      "x": 780,
+      "y": 440,
+      "wires": [
+        [
+          "chart_humidity"
+        ]
+      ]
+    },
+    {
+      "id": "chart_humidity",
+      "type": "ui_chart",
+      "z": "flow_3",
+      "name": "Humidity Chart",
+      "group": "ui_group_main",
+      "order": 11,
+      "width": 12,
+      "height": 6,
+      "label": "Humidity over Time",
+      "chartType": "line",
+      "legend": "true",
+      "xformat": "HH:mm:ss",
+      "interpolate": "linear",
+      "nodata": "No data",
+      "ymin": "0",
+      "ymax": "auto",
+      "removeOlder": 24,
+      "removeOlderUnit": "3600",
+      "colors": [
+        "#00b500",
+        "#666666"
+      ],
+      "outputs": 1,
+      "x": 1000,
+      "y": 440,
+      "wires": []
+    }
+  ]
+}
