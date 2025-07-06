@@ -109,3 +109,14 @@ python3 test_i2c_cli.py --read
 > ⚠️ Use a 10kΩ pull-up resistor between DATA and VCC if not included on the module.
 
 ---
+
+
+---
+
+## ⚠️ Disclaimer
+
+This project is provided for educational and prototyping purposes only.
+
+> **Use at your own risk.**  
+> The authors and contributors assume no responsibility or liability for damage to hardware, health, or environment resulting from the use or misuse of this software and wiring setup. Always double-check voltage levels, connections, and sensor datasheets before powering your circuit.
+
