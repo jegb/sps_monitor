@@ -29,11 +29,13 @@ sudo apt install -y git build-essential
 
 ```bash
 git clone --recursive https://github.com/Sensirion/embedded-sps.git
-cd embedded-sps
-make release
+cd embedded-sps/release/sps30-i2c-*/
+gcc -fPIC -shared -o libsps30.so \
+  sps30.c sensirion_common.c hw_i2c/sensirion_hw_i2c_implementation.c \
+  -I. -Ihw_i2c
 ```
 
-This builds the shared object `libsps30.so` in the `release/` directory.
+This builds the shared object `libsps30.so` in the current directory.
 
 ---
 
@@ -42,7 +44,7 @@ This builds the shared object `libsps30.so` in the `release/` directory.
 Copy the shared library to your project:
 
 ```bash
-cp release/libsps30.so /home/pi/sps30_monitor/c_sps30_i2c/
+cp libsps30.so /home/pi/sps30_monitor/c_sps30_i2c/
 ```
 
 > Adjust path as needed to match your directory.
@@ -72,4 +74,3 @@ python3 test_i2c_cli.py --read
 
 - If `libsps30.so` not found: ensure it's in the Python working directory.
 - Use `ldd libsps30.so` to verify all dependencies are resolved.
-
