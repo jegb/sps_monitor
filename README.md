@@ -8,10 +8,11 @@ This project uses the Sensirion SPS30 (I²C) with optional SHT31 or DHT11 to mon
 
 - SPS30 readings via official C driver wrapped in Python (I²C)
 - Modular sensor support for temperature and humidity (DHT11, SHT31)
-- MQTT publishing for Node-RED dashboards
+- SQLite database storage with rotation options
+- **Web dashboard** with live + historical data visualization (Flask)
+- MQTT publishing for Node-RED integration
 - Optional systemd service for auto-start on boot
 - CLI tool for testing I²C + sensor integration
-- SQLite database storage with rotation options
 
 ---
 
@@ -50,9 +51,44 @@ python3 test_i2c_cli.py --read
 
 ---
 
-## 🧩 Sensor Wiring Diagrams and Systemd Setup
+## 📊 Running the Data Collection and Dashboard
 
-(Refer to full README for detailed connection guides and dashboard instructions.)
+### 1. Initialize the Database
+
+```bash
+python3 init_sps30_db.py
+```
+
+### 2. Start the Sensor Reader
+
+```bash
+python3 sensor_reader.py
+```
+
+This collects readings every 60 seconds and stores them in SQLite + publishes to MQTT.
+
+### 3. Start the Web Dashboard
+
+In another terminal:
+
+```bash
+python3 web_server.py                    # default: 0.0.0.0:5000
+python3 web_server.py --port 8080        # custom port
+python3 web_server.py --db /path/to/db   # custom DB path
+python3 web_server.py --debug            # debug mode
+```
+
+Access the dashboard from any device on the network:
+- **http://<pi-ip>:5000** (or your custom port)
+- Shows live readings (PM1.0, PM2.5, PM4.0, PM10, Temp, Humidity)
+- Historical charts with time range selector (1H, 6H, 24H, 7D, 30D)
+- Real-time status indicator
+
+---
+
+## 🧩 Sensor Wiring Diagrams
+
+(Refer to sections below for detailed connection guides.)
 
 
 ---

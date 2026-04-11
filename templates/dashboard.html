@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SPS30 Air Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg:        #0c0f14;
+    --surface:   #151921;
+    --surface2:  #1c2230;
+    --border:    #252d3d;
+    --text:      #e2e8f0;
+    --text-dim:  #7b8ba3;
+    --accent:    #38bdf8;
+    --green:     #34d399;
+    --amber:     #fbbf24;
+    --red:       #f87171;
+    --purple:    #a78bfa;
+    --pink:      #f472b6;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ─────────────────────────────────────── */
+  header {
+    padding: 20px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  header h1 span.dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,.4); }
+    50%      { opacity: .7; box-shadow: 0 0 0 6px rgba(52,211,153,0); }
+  }
+  .last-update {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── LIVE CARDS ─────────────────────────────────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 0 16px 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+  }
+  .card.pm1::before   { background: var(--accent); }
+  .card.pm25::before  { background: var(--amber); }
+  .card.pm4::before   { background: var(--purple); }
+  .card.pm10::before  { background: var(--red); }
+  .card.temp::before  { background: var(--pink); }
+  .card.hum::before   { background: var(--green); }
+
+  .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .card-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .card-unit {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-dim);
+    margin-left: 2px;
+  }
+  .card-quality {
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+  .q-good   { background: rgba(52,211,153,.15); color: var(--green); }
+  .q-mod    { background: rgba(251,191,36,.15); color: var(--amber); }
+  .q-poor   { background: rgba(248,113,113,.15); color: var(--red); }
+
+  /* ── RANGE SELECTOR ─────────────────────────────── */
+  .range-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .range-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+  }
+  .range-btn:active, .range-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+
+  /* ── CHART PANELS ───────────────────────────────── */
+  .chart-section {
+    padding: 0 16px 20px;
+  }
+  .chart-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  canvas { width: 100% !important; }
+
+  /* ── FOOTER ─────────────────────────────────────── */
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── STATUS OVERLAY ─────────────────────────────── */
+  .status-bar {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-bar.error { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span> SPS30</h1>
+  <span class="last-update" id="lastUpdate">--:--</span>
+</header>
+
+<!-- Live reading cards -->
+<div class="cards">
+  <div class="card pm1">
+    <div class="card-label">PM 1.0</div>
+    <div class="card-value" id="pm1">--<span class="card-unit">µg/m³</span></div>
+  </div>
+  <div class="card pm25">
+    <div class="card-label">PM 2.5</div>
+    <div class="card-value" id="pm25">--<span class="card-unit">µg/m³</span></div>
+    <div class="card-quality" id="pm25q"></div>
+  </div>
+  <div class="card pm4" id="pm4card">
+    <div class="card-label">PM 4.0</div>
+    <div class="card-value" id="pm4">--<span class="card-unit">µg/m³</span></div>
+  </div>
+  <div class="card pm10">
+    <div class="card-label">PM 10</div>
+    <div class="card-value" id="pm10">--<span class="card-unit">µg/m³</span></div>
+  </div>
+  <div class="card temp">
+    <div class="card-label">Temp</div>
+    <div class="card-value" id="temp">--<span class="card-unit">°C</span></div>
+  </div>
+  <div class="card hum">
+    <div class="card-label">Humidity</div>
+    <div class="card-value" id="hum">--<span class="card-unit">%</span></div>
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar">connecting…</div>
+
+<!-- Time range buttons -->
+<div class="range-bar">
+  <button class="range-btn" data-range="1h">1H</button>
+  <button class="range-btn active" data-range="6h">6H</button>
+  <button class="range-btn" data-range="24h">24H</button>
+  <button class="range-btn" data-range="7d">7D</button>
+  <button class="range-btn" data-range="30d">30D</button>
+</div>
+
+<!-- Charts -->
+<div class="chart-section">
+  <div class="chart-panel">
+    <div class="chart-title">Particulate Matter</div>
+    <canvas id="pmChart" height="200"></canvas>
+  </div>
+  <div class="chart-panel">
+    <div class="chart-title">Temperature & Humidity</div>
+    <canvas id="envChart" height="180"></canvas>
+  </div>
+</div>
+
+<footer>SPS30 Monitor · Sensirion · RPi</footer>
+
+<script>
+// ── CHART SETUP ──────────────────────────────────────
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 400 },
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: {
+      labels: {
+        color: '#7b8ba3',
+        font: { family: "'JetBrains Mono', monospace", size: 11 },
+        boxWidth: 12, padding: 12,
+      }
+    },
+    tooltip: {
+      backgroundColor: '#1c2230',
+      titleColor: '#e2e8f0',
+      bodyColor: '#e2e8f0',
+      borderColor: '#252d3d',
+      borderWidth: 1,
+      titleFont: { family: "'JetBrains Mono', monospace" },
+      bodyFont: { family: "'DM Sans', sans-serif" },
+    }
+  },
+  scales: {
+    x: {
+      type: 'time',
+      ticks: { color: '#7b8ba3', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxTicksLimit: 6 },
+      grid: { color: 'rgba(37,45,61,.5)' },
+    },
+    y: {
+      ticks: { color: '#7b8ba3', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+      grid: { color: 'rgba(37,45,61,.5)' },
+    }
+  },
+  elements: { point: { radius: 0 }, line: { borderWidth: 2, tension: 0.3 } },
+};
+
+const pmChart = new Chart(document.getElementById('pmChart'), {
+  type: 'line',
+  data: {
+    datasets: [
+      { label: 'PM1.0',  borderColor: '#38bdf8', data: [] },
+      { label: 'PM2.5',  borderColor: '#fbbf24', data: [] },
+      { label: 'PM4.0',  borderColor: '#a78bfa', data: [] },
+      { label: 'PM10',   borderColor: '#f87171', data: [] },
+    ]
+  },
+  options: { ...chartDefaults },
+});
+
+const envChart = new Chart(document.getElementById('envChart'), {
+  type: 'line',
+  data: {
+    datasets: [
+      { label: 'Temp °C',    borderColor: '#f472b6', data: [], yAxisID: 'y' },
+      { label: 'Humidity %',  borderColor: '#34d399', data: [], yAxisID: 'y1' },
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      ...chartDefaults.scales,
+      y:  { ...chartDefaults.scales.y, position: 'left',  title: { display: true, text: '°C', color: '#7b8ba3' } },
+      y1: { ...chartDefaults.scales.y, position: 'right', title: { display: true, text: '%',  color: '#7b8ba3' }, grid: { drawOnChartArea: false } },
+    }
+  },
+});
+
+// ── AQI HELPERS ──────────────────────────────────────
+function pm25Quality(v) {
+  if (v == null) return ['--', ''];
+  if (v <= 12)  return ['Good', 'q-good'];
+  if (v <= 35)  return ['Moderate', 'q-mod'];
+  return ['Poor', 'q-poor'];
+}
+
+function setVal(id, v, decimals = 1) {
+  const el = document.getElementById(id);
+  if (el && v != null) {
+    const unit = el.querySelector('.card-unit')?.outerHTML || '';
+    el.innerHTML = Number(v).toFixed(decimals) + unit;
+  }
+}
+
+// ── DATA FETCHING ────────────────────────────────────
+let currentRange = '6h';
+let hasPm4 = true;
+
+async function fetchLatest() {
+  try {
+    const r = await fetch('/api/latest');
+    if (!r.ok) throw new Error('no data');
+    const d = await r.json();
+
+    setVal('pm1',  d.pm1);
+    setVal('pm25', d.pm25);
+    setVal('pm10', d.pm10);
+    setVal('temp', d.temp);
+    setVal('hum',  d.humidity);
+
+    if (d.pm4 != null) {
+      setVal('pm4', d.pm4);
+    } else {
+      document.getElementById('pm4card').style.display = 'none';
+      hasPm4 = false;
+    }
+
+    const [label, cls] = pm25Quality(d.pm25);
+    const qEl = document.getElementById('pm25q');
+    qEl.textContent = label;
+    qEl.className = 'card-quality ' + cls;
+
+    document.getElementById('lastUpdate').textContent =
+      d.ts ? new Date(d.ts).toLocaleTimeString() : new Date().toLocaleTimeString();
+    document.getElementById('statusBar').textContent = 'live';
+    document.getElementById('statusBar').className = 'status-bar';
+  } catch (e) {
+    document.getElementById('statusBar').textContent = 'offline – retrying…';
+    document.getElementById('statusBar').className = 'status-bar error';
+  }
+}
+
+async function fetchHistory() {
+  try {
+    const r = await fetch(`/api/history?range=${currentRange}`);
+    if (!r.ok) return;
+    const data = await r.json();
+
+    const pm1 = [], pm25 = [], pm4 = [], pm10 = [], temps = [], hums = [];
+
+    data.forEach(d => {
+      const t = new Date(d.ts);
+      pm1.push({ x: t, y: d.pm1 });
+      pm25.push({ x: t, y: d.pm25 });
+      if (d.pm4 != null) pm4.push({ x: t, y: d.pm4 });
+      pm10.push({ x: t, y: d.pm10 });
+      temps.push({ x: t, y: d.temp });
+      hums.push({ x: t, y: d.humidity });
+    });
+
+    pmChart.data.datasets[0].data = pm1;
+    pmChart.data.datasets[1].data = pm25;
+    pmChart.data.datasets[2].data = pm4;
+    pmChart.data.datasets[3].data = pm10;
+
+    if (!hasPm4) {
+      pmChart.data.datasets[2].hidden = true;
+    }
+
+    envChart.data.datasets[0].data = temps;
+    envChart.data.datasets[1].data = hums;
+
+    pmChart.update('none');
+    envChart.update('none');
+  } catch (e) {
+    console.error('History fetch error:', e);
+  }
+}
+
+// ── RANGE BUTTONS ────────────────────────────────────
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentRange = btn.dataset.range;
+    fetchHistory();
+  });
+});
+
+// ── POLLING ──────────────────────────────────────────
+fetchLatest();
+fetchHistory();
+setInterval(fetchLatest, 30_000);      // live values every 30s
+setInterval(fetchHistory, 120_000);    // charts every 2 min
+</script>
+</body>
+</html>

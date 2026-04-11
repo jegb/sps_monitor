@@ -12,6 +12,7 @@ def init_db():
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         pm1 REAL,
         pm25 REAL,
+        pm4 REAL,
         pm10 REAL,
         temp REAL,
         humidity REAL

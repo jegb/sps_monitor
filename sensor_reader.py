@@ -44,7 +44,7 @@ def store_to_db(pm_data, temp, humidity):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
-        INSERT INTO sensor_data (timestamp, pm_1_0, pm_2_5, pm_4_0, pm_10_0, temp, humidity)
+        INSERT INTO sps30_data (timestamp, pm1, pm25, pm4, pm10, temp, humidity)
         VALUES (datetime('now'), ?, ?, ?, ?, ?, ?)
     """, (
         pm_data.mc_1p0, pm_data.mc_2p5, pm_data.mc_4p0, pm_data.mc_10p0,
