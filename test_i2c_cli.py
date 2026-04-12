@@ -3,12 +3,12 @@ import argparse
 from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
 from config import SENSOR_TYPE
 
-if SENSOR_TYPE == "SHT31":
+if SENSOR_TYPE in ("SHT31", "SHT3X"):
     from sensors import sht31 as temp_sensor
 elif SENSOR_TYPE == "DHT11":
     from sensors import dht11 as temp_sensor
 else:
-    raise ValueError("Unsupported sensor")
+    raise ValueError(f"Unsupported sensor: {SENSOR_TYPE}")
 
 def test_read():
     print("[INFO] Reading SPS30 sensor...")

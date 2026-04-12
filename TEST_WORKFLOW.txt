@@ -1,0 +1,225 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║          SENSOR TESTING & VALIDATION WORKFLOW                                   ║
+║                                                                                  ║
+║  Use this flow to pre-validate hardware before full system integration           ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+
+PHASE 1: HARDWARE VERIFICATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+    Physical Hardware Checklist
+    ├─ SPS30: VDD(5V) → GND, SDA → GPIO2, SCL → GPIO3, SEL → GND
+    ├─ SHT3x: VCC(3.3V) → GND, SDA → GPIO2, SCL → GPIO3, ADDR → GND/3.3V
+    ├─ DHT11: VCC → GND, DATA → GPIO4, Add 10kΩ pull-up
+    └─ Pull-up resistors: 4.7kΩ on SDA/SCL (I2C bus)
+
+    Enable Raspberry Pi I2C
+    └─ raspi-config → Interfacing Options → I2C → Yes
+
+
+PHASE 2: I2C BUS DETECTION
+═══════════════════════════════════════════════════════════════════════════════════
+
+    Command: python3 test_sensors_unit.py --scan
+
+    ┌─────────────────────────────────┐
+    │ I2C Bus Scan                    │
+    ├─────────────────────────────────┤
+    │ ✓ SHT3x at 0x44                │
+    │ ✓ SPS30 at 0x69                │
+    └─────────────────────────────────┘
+           │
+           ├─ YES, proceed to Phase 3
+           └─ NO, see TROUBLESHOOTING
+
+
+PHASE 3: INDIVIDUAL SENSOR VALIDATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+    Test SHT3x (I2C Temperature/Humidity)
+    ┌────────────────────────────────────┐
+    │ python3 test_sensors_unit.py      │
+    │         --sht3x                   │
+    ├────────────────────────────────────┤
+    │ Attempt  Temp    Humidity  Status  │
+    │ 1        22.45°C 45.32%    ✓ OK   │
+    │ 2        22.47°C 45.28%    ✓ OK   │
+    │ 3        22.46°C 45.31%    ✓ OK   │
+    │                            PASSED │
+    └────────────────────────────────────┘
+           │
+           ├─ PASSED → Continue
+           └─ FAILED → Check wiring/address
+
+
+    Test SPS30 (I2C Particulate Matter)
+    ┌────────────────────────────────────┐
+    │ python3 test_sensors_unit.py      │
+    │         --sps30                   │
+    ├────────────────────────────────────┤
+    │ Attempt  PM1.0 PM2.5 PM10  Status │
+    │ 1        2.34  5.67  12.34 ✓ OK  │
+    │ 2        2.35  5.68  12.35 ✓ OK  │
+    │                            PASSED │
+    └────────────────────────────────────┘
+           │
+           ├─ PASSED → Continue
+           └─ FAILED → Rebuild driver
+
+
+    Test DHT11 (GPIO Temperature/Humidity) [if using]
+    ┌────────────────────────────────────┐
+    │ python3 test_sensors_unit.py      │
+    │         --dht11 --pin 4           │
+    ├────────────────────────────────────┤
+    │ Attempt  Temp    Humidity  Status  │
+    │ 1        23.0°C  46.0%     ✓ OK   │
+    │ 2        23.0°C  46.0%     ✓ OK   │
+    │ 3        23.0°C  46.0%     ✓ OK   │
+    │                            PASSED │
+    └────────────────────────────────────┘
+           │
+           ├─ PASSED → Continue
+           └─ FAILED → Check GPIO/pull-up
+
+
+PHASE 4: COMPREHENSIVE VALIDATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+    Command: python3 test_sensors_unit.py --all
+
+    ┌─────────────────────────────────┐
+    │ Comprehensive Test Suite        │
+    ├─────────────────────────────────┤
+    │ I2C Bus Scan        ✓ PASSED   │
+    │ SHT3x Sensor        ✓ PASSED   │
+    │ SPS30 Sensor        ✓ PASSED   │
+    │ DHT11 Sensor        ✓ PASSED   │
+    ├─────────────────────────────────┤
+    │ ALL TESTS PASSED                │
+    └─────────────────────────────────┘
+           │
+           ├─ ALL PASSED → Proceed to Phase 5
+           └─ ANY FAILED → Return to Phase 3
+
+
+PHASE 5: SYSTEM INTEGRATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+    Configure System
+    ├─ Edit config.py
+    │  └─ SENSOR_TYPE = "SHT3X"  (or "DHT11")
+    ├─ Verify EMULATE = False  (use real sensors)
+    └─ Check database paths
+
+    Start Full System
+    ├─ python3 init_sps30_db.py     (Initialize database)
+    ├─ python3 sensor_reader.py     (Start collection)
+    └─ python3 web_server.py        (Start dashboard)
+
+    Monitor Output
+    └─ Check logs for errors:
+       • PM data collection
+       • Temperature/humidity readings
+       • Database writes
+       • MQTT publishing
+
+
+PHASE 6: OPERATIONAL VALIDATION
+═══════════════════════════════════════════════════════════════════════════════════
+
+    Verify Data Collection
+    ├─ Web Dashboard: http://<pi-ip>:5000
+    │  └─ Check live readings update every 30 sec
+    │  └─ Check historical charts load
+    ├─ Database: sqlite3 sps30_data.db
+    │  └─ SELECT * FROM sps30_data ORDER BY timestamp DESC LIMIT 5;
+    └─ MQTT: mosquitto_sub -h localhost -t "airquality/sensor"
+       └─ Verify JSON payload publishing
+
+    Re-validate Periodically
+    ├─ Run --sht3x every day to spot drift
+    ├─ Run --scan monthly to catch connection issues
+    └─ Check --all quarterly before seasonal changes
+
+
+═════════════════════════════════════════════════════════════════════════════════════
+TROUBLESHOOTING QUICK FIXES
+═════════════════════════════════════════════════════════════════════════════════════
+
+Issue: I2C Bus Shows No Devices
+┌──────────────────────────────────────────────────────────────┐
+│ 1. Enable I2C: sudo raspi-config → Interfacing Options     │
+│ 2. Check wiring: SDA=GPIO2(Pin3), SCL=GPIO3(Pin5), GND=Pin6 │
+│ 3. Verify pull-ups: 4.7kΩ on SDA/SCL lines                │
+│ 4. System scan: sudo i2cdetect -y 1                        │
+│                                                             │
+│ If still no devices → Check power to sensors (3.3V/5V)    │
+└──────────────────────────────────────────────────────────────┘
+
+Issue: SHT3x Not Found at Expected Address
+┌──────────────────────────────────────────────────────────────┐
+│ 1. Verify ADDR pin connection:                              │
+│    - ADDR→GND = 0x44 (default)                              │
+│    - ADDR→3.3V = 0x45 (alternate)                           │
+│ 2. Run scan: python3 test_sensors_unit.py --scan            │
+│ 3. Test with discovered address:                            │
+│    python3 test_sensors_unit.py --sht3x --addr 0x45        │
+└──────────────────────────────────────────────────────────────┘
+
+Issue: SPS30 Driver Not Found
+┌──────────────────────────────────────────────────────────────┐
+│ 1. Rebuild driver: cd c_sps30_i2c && bash RPI_DRIVER_BUILD  │
+│ 2. Verify libsps30.so: ls -la c_sps30_i2c/libsps30.so       │
+│ 3. Check permissions: chmod +x c_sps30_i2c/libsps30.so      │
+└──────────────────────────────────────────────────────────────┘
+
+Issue: DHT11 Not Responding
+┌──────────────────────────────────────────────────────────────┐
+│ 1. Install library: pip3 install adafruit-circuitpython-dht │
+│ 2. Verify GPIO pin: config.py → DHT11_PIN = 4              │
+│ 3. Add pull-up: 10kΩ between DATA and 3.3V                 │
+│ 4. Try alternate pin: --dht11 --pin 17                      │
+│ 5. Allow retries: DHT11 is flaky, use --iterations 5       │
+└──────────────────────────────────────────────────────────────┘
+
+═════════════════════════════════════════════════════════════════════════════════════
+TEST COMMANDS REFERENCE
+═════════════════════════════════════════════════════════════════════════════════════
+
+Basic Tests
+├─ python3 test_sensors_unit.py --scan          (I2C bus detection)
+├─ python3 test_sensors_unit.py --sht3x         (SHT3x probe)
+├─ python3 test_sensors_unit.py --sps30         (SPS30 probe)
+├─ python3 test_sensors_unit.py --dht11         (DHT11 probe)
+└─ python3 test_sensors_unit.py --all           (Full suite)
+
+Advanced Options
+├─ python3 test_sensors_unit.py --sht3x --addr 0x45      (Alt address)
+├─ python3 test_sensors_unit.py --dht11 --pin 17         (Alt GPIO)
+├─ python3 test_sensors_unit.py --sht3x -n 10            (10 iterations)
+├─ python3 test_sensors_unit.py --sps30 -n 2             (2 reads, ~20sec)
+└─ python3 test_sensors_unit.py --all -n 5               (Full suite, 5x each)
+
+Continuous Monitoring
+├─ while true; do python3 test_sensors_unit.py --sht3x; sleep 60; done
+└─ while true; do python3 test_sensors_unit.py --scan; sleep 300; done
+
+═════════════════════════════════════════════════════════════════════════════════════
+DOCUMENTATION
+═════════════════════════════════════════════════════════════════════════════════════
+
+Complete Testing Guide
+├─ cat TESTING.md
+
+Quick Command Reference
+├─ cat TEST_QUICK_REFERENCE.md
+
+Integration Summary
+├─ cat INTEGRATION_SUMMARY.md
+
+Main Project Docs
+├─ cat README.md
+
+═════════════════════════════════════════════════════════════════════════════════════
