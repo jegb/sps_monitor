@@ -1,4 +1,9 @@
 import time
+import sys
+# Import board FIRST to ensure adafruit_dht gets the right one
+from adafruit_blinka.board.raspberrypi import raspi_5
+sys.modules['board'] = raspi_5
+
 import adafruit_dht
 from adafruit_blinka.board.raspberrypi.raspi_5 import D4
 

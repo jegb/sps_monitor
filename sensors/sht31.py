@@ -1,3 +1,8 @@
+import sys
+# Import board FIRST to ensure busio gets the right one
+from adafruit_blinka.board.raspberrypi import raspi_5
+sys.modules['board'] = raspi_5
+
 import busio
 import adafruit_sht31d
 from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA

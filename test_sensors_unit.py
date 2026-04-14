@@ -24,6 +24,10 @@ def scan_i2c_bus():
     print("I2C BUS SCAN")
     print("="*60)
     try:
+        # Import board FIRST to ensure busio gets the right one
+        from adafruit_blinka.board.raspberrypi import raspi_5
+        sys.modules['board'] = raspi_5
+
         import busio
         from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA
 
@@ -93,6 +97,10 @@ def test_sht3x(address=0x44, iterations=3):
     print("="*60)
 
     try:
+        # Import board FIRST to ensure busio gets the right one
+        from adafruit_blinka.board.raspberrypi import raspi_5
+        sys.modules['board'] = raspi_5
+
         import busio
         import adafruit_sht31d
         from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA
@@ -184,6 +192,10 @@ def test_dht11(pin=4, iterations=3):
     print("="*60)
 
     try:
+        # Import board FIRST to ensure adafruit_dht gets the right one
+        from adafruit_blinka.board.raspberrypi import raspi_5
+        sys.modules['board'] = raspi_5
+
         import adafruit_dht
         from adafruit_blinka.board.raspberrypi.raspi_5 import D4, D17, D22, D27
 
