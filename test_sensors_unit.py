@@ -83,7 +83,7 @@ def _identify_device(addr):
     known_devices = {
         0x44: "SHT3X (default addr, ADDR→GND)",
         0x45: "SHT3X (alt addr, ADDR→VDD)",
-        0x68: "SPS30",
+        0x69: "SPS30",
         0x77: "BME280/BMP280 (alt addr)",
         0x76: "BME280/BMP280 (default addr)",
     }
@@ -141,7 +141,7 @@ def test_sht3x(address=0x44, iterations=3):
 def test_sps30(iterations=3):
     """Test SPS30 sensor."""
     print("\n" + "="*60)
-    print("SPS30 SENSOR TEST (I2C Address: 0x68)")
+    print("SPS30 SENSOR TEST (I2C Address: 0x69)")
     print("="*60)
 
     try:

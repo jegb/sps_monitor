@@ -19,7 +19,7 @@ else:
 from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
 
 def is_sps30_available():
-    """Check if SPS30 is present on I2C bus (address 0x68)."""
+    """Check if SPS30 is present on I2C bus (address 0x69)."""
     try:
         import busio
         from board import SCL, SDA
@@ -29,10 +29,10 @@ def is_sps30_available():
             pass
 
         try:
-            i2c.writeto(0x68, b'')
+            i2c.writeto(0x69, b'')
             return True
         except OSError:
-            # Device not responding at 0x68
+            # Device not responding at 0x69
             return False
         finally:
             i2c.unlock()
