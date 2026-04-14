@@ -272,8 +272,8 @@
 
 <!-- Time range buttons -->
 <div class="range-bar">
-  <button class="range-btn" data-range="1h">1H</button>
-  <button class="range-btn active" data-range="6h">6H</button>
+  <button class="range-btn active" data-range="1h">1H</button>
+  <button class="range-btn" data-range="6h">6H</button>
   <button class="range-btn" data-range="24h">24H</button>
   <button class="range-btn" data-range="7d">7D</button>
   <button class="range-btn" data-range="30d">30D</button>
@@ -326,7 +326,18 @@ const chartDefaults = {
   scales: {
     x: {
       type: 'time',
-      ticks: { color: '#7b8ba3', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxTicksLimit: 6 },
+      time: {
+        displayFormats: {
+          minute: 'HH:mm',
+          hour: 'HH:mm'
+        }
+      },
+      ticks: {
+        color: '#7b8ba3',
+        font: { family: "'JetBrains Mono', monospace", size: 10 },
+        maxTicksLimit: 6,
+        source: 'auto'
+      },
       grid: { color: 'rgba(37,45,61,.5)' },
     },
     y: {
@@ -391,7 +402,7 @@ function setVal(id, v, decimals = 1) {
 }
 
 // ── DATA FETCHING ────────────────────────────────────
-let currentRange = '6h';
+let currentRange = '1h';
 let hasPm4 = true;
 
 async function fetchLatest() {
@@ -433,6 +444,9 @@ async function fetchHistory() {
     const r = await fetch(`/api/history?range=${currentRange}`);
     if (!r.ok) return;
     const data = await r.json();
+
+    // Sort data chronologically (oldest to newest) for left-to-right display
+    data.sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
     const pm1 = [], pm25 = [], pm4 = [], pm10 = [], temps = [], hums = [];
 
