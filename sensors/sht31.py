@@ -1,11 +1,9 @@
-import sys
-# Import board FIRST to ensure busio gets the right one
-from adafruit_blinka.board.raspberrypi import raspi_40pin
-sys.modules['board'] = raspi_40pin
+from board_detect import init_board
+board_module, _ = init_board()
 
 import busio
 import adafruit_sht31d
-from adafruit_blinka.board.raspberrypi.raspi_40pin import SCL, SDA
+from board import SCL, SDA
 
 def get_readings():
     """

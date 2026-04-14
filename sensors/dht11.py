@@ -1,11 +1,9 @@
 import time
-import sys
-# Import board FIRST to ensure adafruit_dht gets the right one
-from adafruit_blinka.board.raspberrypi import raspi_40pin
-sys.modules['board'] = raspi_40pin
+from board_detect import init_board
+board_module, _ = init_board()
 
 import adafruit_dht
-from adafruit_blinka.board.raspberrypi.raspi_40pin import D4
+from board import D4
 
 # Initialize the DHT device, with data pin connected to GPIO4
 dht_device = adafruit_dht.DHT11(D4)

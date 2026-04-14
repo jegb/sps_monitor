@@ -3,6 +3,11 @@ import logging
 import sqlite3
 import paho.mqtt.publish as publish
 import random
+from board_detect import init_board
+
+# Initialize board BEFORE any adafruit imports
+board_module, board_name = init_board()
+
 from config import SENSOR_TYPE, EMULATE, PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE, PPD42_SAMPLE_DURATION
 if SENSOR_TYPE in ("SHT31", "SHT3X"):
     from sensors import sht31 as temp_sensor
