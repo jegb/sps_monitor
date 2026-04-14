@@ -120,11 +120,30 @@ install_system_dependencies() {
     done
 }
 
+create_venv() {
+    section "CREATING PYTHON VIRTUAL ENVIRONMENT"
+
+    if [ -d "$VENV_DIR" ]; then
+        warn "Virtual environment already exists at $VENV_DIR"
+        log "Using existing virtual environment"
+        return
+    fi
+
+    log "Creating virtual environment at $VENV_DIR..."
+    if python3 -m venv "$VENV_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+        success "Virtual environment created"
+    else
+        error "Failed to create virtual environment"
+    fi
+}
+
 install_python_dependencies() {
     section "INSTALLING PYTHON DEPENDENCIES"
 
-    log "Upgrading pip..."
-    python3 -m pip install --upgrade pip setuptools wheel 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    VENV_PIP="$VENV_DIR/bin/pip"
+
+    log "Upgrading pip in venv..."
+    "$VENV_PIP" install --upgrade pip setuptools wheel 2>&1 | tee -a "$LOG_FILE" > /dev/null
 
     PYTHON_PACKAGES=(
         "paho-mqtt"
@@ -139,7 +158,7 @@ install_python_dependencies() {
 
     for pkg in "${PYTHON_PACKAGES[@]}"; do
         log "Installing Python package: $pkg..."
-        python3 -m pip install "$pkg" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+        "$VENV_PIP" install "$pkg" 2>&1 | tee -a "$LOG_FILE" > /dev/null
         success "Installed: $pkg"
     done
 }
@@ -269,7 +288,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 {SCRIPT_DIR}/sensor_reader.py
+ExecStart={SCRIPT_DIR}/venv/bin/python3 {SCRIPT_DIR}/sensor_reader.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -322,7 +341,7 @@ After=network.target sps30-reader.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 {SCRIPT_DIR}/web_server.py --port 5000
+ExecStart={SCRIPT_DIR}/venv/bin/python3 {SCRIPT_DIR}/web_server.py --port 5000
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -478,6 +497,7 @@ EOF
     check_prerequisites
     configure_hostname
     install_system_dependencies
+    create_venv
     install_python_dependencies
     build_sps30_driver
     run_hardware_tests
@@ -529,6 +549,7 @@ case "${1:-}" in
         check_prerequisites
         configure_hostname
         install_system_dependencies
+        create_venv
         install_python_dependencies
         build_sps30_driver
         init_database
