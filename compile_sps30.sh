@@ -44,21 +44,33 @@ echo "Initializing submodules..."
 cd "$SOURCE_DIR"
 git submodule update --init --recursive
 
-# Verify critical submodules are present
-if [ ! -d "sps-common" ] || [ ! -f "sps-common/sps_git_version.c" ]; then
-    echo "⚠️  sps-common submodule missing, re-cloning repository..."
-    cd /
-    rm -rf "$SOURCE_DIR"
-    git clone https://github.com/Sensirion/embedded-sps.git "$SOURCE_DIR"
-    cd "$SOURCE_DIR"
-    git submodule update --init --recursive
-fi
+# List repository structure for debugging
+echo "Repository structure:"
+ls -la "$SOURCE_DIR/"
 
-# Final verification
-if [ ! -f "sps-common/sps_git_version.c" ]; then
-    echo "✗ Failed to initialize sps-common submodule"
+# Check if required files exist
+echo ""
+echo "Checking for required source files..."
+if [ ! -d "$SOURCE_DIR/sps30-i2c" ]; then
+    echo "✗ sps30-i2c directory not found!"
     exit 1
 fi
+
+if [ ! -d "$SOURCE_DIR/sps-common" ]; then
+    echo "✗ sps-common directory not found!"
+    echo "Directory contents:"
+    ls -la "$SOURCE_DIR/"
+    exit 1
+fi
+
+if [ ! -f "$SOURCE_DIR/sps-common/sps_git_version.c" ]; then
+    echo "✗ sps_git_version.c not found in sps-common!"
+    echo "sps-common contents:"
+    ls -la "$SOURCE_DIR/sps-common/"
+    exit 1
+fi
+
+echo "✓ All required source files found"
 
 # Compile
 echo "Compiling SPS30 library for $ARCH..."
