@@ -32,6 +32,8 @@
     color: var(--text);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /* ── HEADER ─────────────────────────────────────── */
@@ -166,6 +168,13 @@
     border-radius: 14px;
     padding: 16px;
     margin-bottom: 12px;
+    position: relative;
+  }
+  .chart-panel:nth-child(1) {
+    height: 280px;
+  }
+  .chart-panel:nth-child(2) {
+    height: 260px;
   }
   .chart-title {
     font-size: 13px;
@@ -174,7 +183,10 @@
     margin-bottom: 12px;
     font-family: 'JetBrains Mono', monospace;
   }
-  canvas { width: 100% !important; }
+  canvas {
+    width: 100% !important;
+    display: block;
+  }
 
   /* ── FOOTER ─────────────────────────────────────── */
   footer {
@@ -247,11 +259,11 @@
 <div class="chart-section">
   <div class="chart-panel">
     <div class="chart-title">Particulate Matter</div>
-    <canvas id="pmChart" height="200"></canvas>
+    <canvas id="pmChart"></canvas>
   </div>
   <div class="chart-panel">
     <div class="chart-title">Temperature & Humidity</div>
-    <canvas id="envChart" height="180"></canvas>
+    <canvas id="envChart"></canvas>
   </div>
 </div>
 
