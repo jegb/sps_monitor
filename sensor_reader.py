@@ -18,6 +18,23 @@ else:
 
 from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
 
+def is_sps30_available():
+    """Check if SPS30 is present on I2C bus (address 0x68)."""
+    try:
+        import busio
+        from board import SCL, SDA
+        i2c = busio.I2C(SCL, SDA)
+        if i2c.try_lock():
+            try:
+                i2c.writeto(0x68, b'')
+                i2c.unlock()
+                return True
+            except OSError:
+                return False
+    except Exception as e:
+        logging.warning(f"Error checking SPS30 availability: {e}")
+        return False
+
 if PPD42_ENABLED:
     from sensors.ppd42 import PPD42Sensor
     ppd42_sensor = PPD42Sensor(pin=PPD42_PIN, particle_size=PPD42_PARTICLE_SIZE)
@@ -103,9 +120,15 @@ def main():
     except Exception as e:
         logging.warning(f"MQTT broker unavailable ({MQTT_BROKER}): {e}. Continuing without MQTT.")
 
+    # Check SPS30 availability at startup
+    sps30_available = is_sps30_available()
+    if not sps30_available:
+        logging.warning("SPS30 not detected on I2C bus. PM readings will be skipped.")
+
     while True:
         particle_count = None
         particle_size = None
+        pm_data = None
 
         if EMULATE:
             fake = generate_fake_readings()
@@ -113,8 +136,14 @@ def main():
             temp = fake["temp"]
             humidity = fake["humidity"]
         else:
-            pm_data = read_sps30()
-            logging.info(f"PM2.5: {pm_data.mc_2p5}, PM10: {pm_data.mc_10p0}")
+            if sps30_available:
+                try:
+                    pm_data = read_sps30()
+                    logging.info(f"PM2.5: {pm_data.mc_2p5}, PM10: {pm_data.mc_10p0}")
+                except Exception as e:
+                    logging.warning(f"SPS30 read failed: {e}")
+                    pm_data = None
+
             temp, humidity = temp_sensor.get_readings()
             logging.info(f"Temp: {temp}°C, Humidity: {humidity}%")
 
@@ -125,7 +154,7 @@ def main():
                     particle_size = ppd42_reading.get("particle_size")
                     logging.info(f"PPD42 (PM{particle_size}): {particle_count} pcs/0.01cf")
 
-        if logging_enabled:
+        if logging_enabled and pm_data:
             store_to_db(pm_data, temp, humidity, particle_count, particle_size)
             if client:
                 try:
