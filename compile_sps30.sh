@@ -48,9 +48,9 @@ git submodule update --init --recursive
 echo "Repository structure:"
 ls -la "$SOURCE_DIR/"
 
-# Check if required files exist
+# Check if required directories exist
 echo ""
-echo "Checking for required source files..."
+echo "Checking for required source directories..."
 if [ ! -d "$SOURCE_DIR/sps30-i2c" ]; then
     echo "✗ sps30-i2c directory not found!"
     exit 1
@@ -63,70 +63,58 @@ if [ ! -d "$SOURCE_DIR/sps-common" ]; then
     exit 1
 fi
 
-if [ ! -f "$SOURCE_DIR/sps-common/sps_git_version.c" ]; then
-    echo "✗ sps_git_version.c not found in sps-common!"
-    echo "sps-common contents:"
-    ls -la "$SOURCE_DIR/sps-common/"
+if [ ! -f "$SOURCE_DIR/Makefile" ]; then
+    echo "✗ Makefile not found!"
     exit 1
 fi
 
-echo "✓ All required source files found"
+echo "✓ All required directories and Makefile found"
 
-# Compile
+# Compile using repository Makefile
 echo "Compiling SPS30 library for $ARCH..."
-cd "$SOURCE_DIR/sps30-i2c"
+cd "$SOURCE_DIR"
 
-# Check if sps_git_version.c needs to be generated
-if [ ! -f "../sps-common/sps_git_version.c" ]; then
-    echo "sps_git_version.c not found, attempting to generate..."
+# Use the repository's Makefile to build
+echo "Building with repository Makefile..."
+make
 
-    # Try using the Makefile to generate it
-    if [ -f "../Makefile" ]; then
-        cd ..
-        make sps-common/sps_git_version.c 2>/dev/null || true
-        cd sps30-i2c
-    fi
-
-    # If still not found, compile without it
-    if [ ! -f "../sps-common/sps_git_version.c" ]; then
-        echo "Compiling without sps_git_version.c..."
-        gcc -fPIC -shared -o libsps30.so \
-            sps30.c \
-            ../embedded-common/sensirion_common.c \
-            ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
-            -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
-    else
-        echo "Using generated sps_git_version.c"
-        gcc -fPIC -shared -o libsps30.so \
-            sps30.c \
-            ../embedded-common/sensirion_common.c \
-            ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
-            ../sps-common/sps_git_version.c \
-            -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
-    fi
+# The Makefile should create the library in the release folder
+if [ -f "release/libsps30.so" ]; then
+    cp release/libsps30.so sps30-i2c/libsps30.so
+elif [ -f "sps30-i2c/libsps30.so" ]; then
+    echo "Library already in sps30-i2c/"
 else
+    echo "⚠️  Makefile build didn't create libsps30.so, trying manual compilation..."
+    cd sps30-i2c
     gcc -fPIC -shared -o libsps30.so \
         sps30.c \
         ../embedded-common/sensirion_common.c \
         ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
-        ../sps-common/sps_git_version.c \
         -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
 fi
 
+# Find the compiled library
+LIB_PATH=""
+if [ -f "sps30-i2c/libsps30.so" ]; then
+    LIB_PATH="sps30-i2c/libsps30.so"
+elif [ -f "release/libsps30.so" ]; then
+    LIB_PATH="release/libsps30.so"
+fi
+
 # Verify compilation
-if [ ! -f libsps30.so ]; then
-    echo "✗ Compilation failed!"
+if [ -z "$LIB_PATH" ] || [ ! -f "$LIB_PATH" ]; then
+    echo "✗ Compilation failed! Library not found."
     exit 1
 fi
 
 echo ""
 echo "Compiled library info:"
-file libsps30.so
+file "$LIB_PATH"
 
 # Copy to project
 echo ""
 echo "Installing library to $LIB_DIR..."
-cp libsps30.so "$LIB_DIR/"
+cp "$LIB_PATH" "$LIB_DIR/"
 
 echo ""
 echo "✓ SPS30 library compiled successfully!"
