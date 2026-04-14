@@ -266,8 +266,8 @@ sudo raspi-config
 # Test I²C bus
 i2cdetect -y 1
 
-# Test specific address
-i2cget -y 1 0x68
+# Test specific address (SPS30)
+i2cget -y 1 0x69
 ```
 
 ### Symptom: "I²C device at 0x69 but SPS30 test fails"

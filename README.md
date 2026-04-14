@@ -151,7 +151,7 @@ The Raspberry Pi (3/4/5) uses the **I²C-1** bus on fixed GPIO pins:
 
 | Sensor | Address (hex) | Address (dec) | I²C Bus | Notes |
 |--------|---------------|---------------|---------|-------|
-| **SPS30** | 0x68 | 104 | I²C-1 | Particulate matter (PM1.0, PM2.5, PM4.0, PM10) |
+| **SPS30** | **0x69** | **105** | I²C-1 | Particulate matter (PM1.0, PM2.5, PM4.0, PM10) |
 | **SHT3X** (ADDR→GND) | 0x44 | 68 | I²C-1 | Temperature & Humidity (default config) |
 | **SHT3X** (ADDR→VDD) | 0x45 | 69 | I²C-1 | Alternative address if two SHT3X sensors needed |
 | **DHT11** | N/A (GPIO) | N/A | GPIO4 | Single-wire protocol, not I²C |
