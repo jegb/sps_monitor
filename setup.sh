@@ -395,17 +395,30 @@ configure_hostname() {
 
     if [ "$CURRENT_HOSTNAME" = "$HOSTNAME" ]; then
         success "Hostname already set to $HOSTNAME"
-        return
+    else
+        log "Setting hostname to $HOSTNAME..."
+
+        # Check if we need sudo
+        if [ "$EUID" -ne 0 ]; then
+            log "Requesting sudo access to set hostname..."
+            sudo hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+        else
+            hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+        fi
+        success "Hostname set to $HOSTNAME"
     fi
 
-    log "Setting hostname to $HOSTNAME..."
-
-    # Check if we need sudo
-    if [ "$EUID" -ne 0 ]; then
-        log "Requesting sudo access to set hostname..."
-        sudo hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    # Update /etc/hosts to resolve hostname locally (fixes sudo warnings)
+    log "Updating /etc/hosts..."
+    if ! grep -q "127.0.1.1.*$HOSTNAME" /etc/hosts; then
+        if [ "$EUID" -ne 0 ]; then
+            echo "127.0.1.1 $HOSTNAME" | sudo tee -a /etc/hosts > /dev/null 2>&1
+        else
+            echo "127.0.1.1 $HOSTNAME" >> /etc/hosts
+        fi
+        success "Added $HOSTNAME to /etc/hosts"
     else
-        hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+        success "/etc/hosts already configured"
     fi
 
     # Verify avahi-daemon is installed for mDNS
@@ -416,9 +429,8 @@ configure_hostname() {
         sudo systemctl start avahi-daemon
     fi
 
-    success "Hostname set to $HOSTNAME"
     success "Access dashboard at: http://$HOSTNAME.local:5000"
-    warn "Note: Reboot required for hostname change to take full effect"
+    warn "Note: Reboot may be required for hostname change to take full effect"
 }
 
 enable_service_autostart() {
