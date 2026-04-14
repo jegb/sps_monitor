@@ -134,6 +134,7 @@ install_python_dependencies() {
         "adafruit-circuitpython-dht"
         "RPi.GPIO"
         "flask"
+        "smbus2"
     )
 
     for pkg in "${PYTHON_PACKAGES[@]}"; do

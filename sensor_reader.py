@@ -16,7 +16,14 @@ elif SENSOR_TYPE == "DHT11":
 else:
     raise ValueError(f"Unsupported sensor: {SENSOR_TYPE}")
 
-from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
+try:
+    # Try pure Python I2C driver first (works on all RPi models)
+    from sensors.sps30_i2c import read_sps30
+    logging.info("Using pure Python SPS30 I2C driver")
+except ImportError:
+    # Fallback to C library if Python driver not available
+    from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
+    logging.info("Using C library SPS30 driver")
 
 def is_sps30_available():
     """Check if SPS30 is present on I2C bus (address 0x69)."""

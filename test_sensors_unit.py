@@ -145,10 +145,16 @@ def test_sps30(iterations=3):
     print("="*60)
 
     try:
-        from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
+        # Try pure Python driver first
+        try:
+            from sensors.sps30_i2c import read_sps30
+            print("Using pure Python I2C driver")
+        except ImportError:
+            from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
+            print("Using C library driver")
 
         print("Starting SPS30 measurement sequence...")
-        print("(SPS30 requires 8+ seconds for data to stabilize)\n")
+        print("(SPS30 requires stabilization time)\n")
 
         print(f"{'Attempt':<10} {'PM1.0':<12} {'PM2.5':<12} {'PM4.0':<12} {'PM10.0':<12} {'Status'}")
         print("-" * 80)
@@ -169,7 +175,7 @@ def test_sps30(iterations=3):
                 sys.exit(1)
 
             if i < iterations:
-                time.sleep(10)  # SPS30 needs time between reads
+                time.sleep(2)  # Brief pause between reads
 
         print("\n✓ SPS30 test PASSED")
 
