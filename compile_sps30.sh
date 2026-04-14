@@ -76,12 +76,42 @@ echo "✓ All required source files found"
 echo "Compiling SPS30 library for $ARCH..."
 cd "$SOURCE_DIR/sps30-i2c"
 
-gcc -fPIC -shared -o libsps30.so \
-    sps30.c \
-    ../embedded-common/sensirion_common.c \
-    ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
-    ../sps-common/sps_git_version.c \
-    -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
+# Check if sps_git_version.c needs to be generated
+if [ ! -f "../sps-common/sps_git_version.c" ]; then
+    echo "sps_git_version.c not found, attempting to generate..."
+
+    # Try using the Makefile to generate it
+    if [ -f "../Makefile" ]; then
+        cd ..
+        make sps-common/sps_git_version.c 2>/dev/null || true
+        cd sps30-i2c
+    fi
+
+    # If still not found, compile without it
+    if [ ! -f "../sps-common/sps_git_version.c" ]; then
+        echo "Compiling without sps_git_version.c..."
+        gcc -fPIC -shared -o libsps30.so \
+            sps30.c \
+            ../embedded-common/sensirion_common.c \
+            ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
+            -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
+    else
+        echo "Using generated sps_git_version.c"
+        gcc -fPIC -shared -o libsps30.so \
+            sps30.c \
+            ../embedded-common/sensirion_common.c \
+            ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
+            ../sps-common/sps_git_version.c \
+            -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
+    fi
+else
+    gcc -fPIC -shared -o libsps30.so \
+        sps30.c \
+        ../embedded-common/sensirion_common.c \
+        ../embedded-common/hw_i2c/sensirion_hw_i2c_implementation.c \
+        ../sps-common/sps_git_version.c \
+        -I. -I../embedded-common/hw_i2c -I../embedded-common -I../sps-common
+fi
 
 # Verify compilation
 if [ ! -f libsps30.so ]; then
