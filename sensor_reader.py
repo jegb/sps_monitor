@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import paho.mqtt.publish as publish
 import random
-from config import SENSOR_TYPE, EMULATE
+from config import SENSOR_TYPE, EMULATE, PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE, PPD42_SAMPLE_DURATION
 if SENSOR_TYPE in ("SHT31", "SHT3X"):
     from sensors import sht31 as temp_sensor
 elif SENSOR_TYPE == "DHT11":
@@ -12,6 +12,12 @@ else:
     raise ValueError(f"Unsupported sensor: {SENSOR_TYPE}")
 
 from c_sps30_i2c.sps30_ctypes_wrapper import read_sps30
+
+if PPD42_ENABLED:
+    from sensors.ppd42 import PPD42Sensor
+    ppd42_sensor = PPD42Sensor(pin=PPD42_PIN, particle_size=PPD42_PARTICLE_SIZE)
+else:
+    ppd42_sensor = None
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,20 +46,20 @@ def generate_fake_readings():
         "humidity": round(random.uniform(30, 70), 1)
     }
 
-def store_to_db(pm_data, temp, humidity):
+def store_to_db(pm_data, temp, humidity, particle_count=None, particle_size=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
-        INSERT INTO sps30_data (timestamp, pm1, pm25, pm4, pm10, temp, humidity)
-        VALUES (datetime('now'), ?, ?, ?, ?, ?, ?)
+        INSERT INTO sps30_data (timestamp, pm1, pm25, pm4, pm10, temp, humidity, particle_count, particle_size)
+        VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         pm_data.mc_1p0, pm_data.mc_2p5, pm_data.mc_4p0, pm_data.mc_10p0,
-        temp, humidity
+        temp, humidity, particle_count, particle_size
     ))
     conn.commit()
     conn.close()
 
-def publish_to_mqtt(pm_data, temp, humidity):
+def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=None):
     payload = {
         "pm_1_0": round(pm_data.mc_1p0, 1),
         "pm_2_5": round(pm_data.mc_2p5, 1),
@@ -62,6 +68,9 @@ def publish_to_mqtt(pm_data, temp, humidity):
         "temp": round(temp, 1),
         "humidity": round(humidity, 1),
     }
+    if particle_count is not None and particle_size is not None:
+        payload["ppd42_particle_count"] = round(particle_count, 2)
+        payload["ppd42_particle_size"] = particle_size
     publish.single(MQTT_TOPIC, str(payload), hostname=MQTT_BROKER)
 
 def main():
@@ -84,6 +93,9 @@ def main():
     client.loop_start()
 
     while True:
+        particle_count = None
+        particle_size = None
+
         if EMULATE:
             fake = generate_fake_readings()
             pm_data = FakeMeasurement(fake)
@@ -95,9 +107,16 @@ def main():
             temp, humidity = temp_sensor.get_readings()
             logging.info(f"Temp: {temp}°C, Humidity: {humidity}%")
 
+            if ppd42_sensor:
+                ppd42_reading = ppd42_sensor.get_reading(sample_duration=PPD42_SAMPLE_DURATION)
+                if ppd42_reading:
+                    particle_count = ppd42_reading.get("particle_count")
+                    particle_size = ppd42_reading.get("particle_size")
+                    logging.info(f"PPD42 (PM{particle_size}): {particle_count} pcs/0.01cf")
+
         if logging_enabled:
-            store_to_db(pm_data, temp, humidity)
-            publish_to_mqtt(pm_data, temp, humidity)
+            store_to_db(pm_data, temp, humidity, particle_count, particle_size)
+            publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
 
         time.sleep(60)
 

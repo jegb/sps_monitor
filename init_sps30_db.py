@@ -15,7 +15,9 @@ def init_db():
         pm4 REAL,
         pm10 REAL,
         temp REAL,
-        humidity REAL
+        humidity REAL,
+        particle_count REAL,
+        particle_size REAL
     );
     """)
     conn.commit()

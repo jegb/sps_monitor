@@ -2,6 +2,9 @@
 
 This project uses the Sensirion SPS30 (I²C) with optional SHT3X family sensors (SHT30/31/35) or DHT11 to monitor PM1.0, PM2.5, PM4.0, PM10, temperature, and humidity. Data is logged to SQLite and published via MQTT to Node-RED for visualization.
 
+**Supported Platforms:** Raspberry Pi 3 / Pi 4 / Pi 5 / **Pi Zero 2W** (original Pi Zero supported but slower)
+For detailed Pi Zero compatibility notes, see [RPI_ZERO_COMPATIBILITY.md](RPI_ZERO_COMPATIBILITY.md).
+
 ---
 
 ## 📦 Features
@@ -125,6 +128,60 @@ Access the dashboard from any device on the network:
 
 (Refer to sections below for detailed connection guides.)
 
+---
+
+## 🔧 I²C Configuration & Pinout Reference
+
+### RPI GPIO I2C Bus Specification
+
+The Raspberry Pi (3/4/5) uses the **I²C-1** bus on fixed GPIO pins:
+- **SDA (Data):** GPIO2 (Pin 3)
+- **SCL (Clock):** GPIO3 (Pin 5)
+- **GND:** Pins 6, 9, 14, 20, 25, 30, 34, 39
+- **3.3V:** Pins 1, 17
+- **5V:** Pins 2, 4
+
+**Pull-up Resistors:**
+- ✅ **Internal 1.8kΩ pull-ups enabled** on GPIO2 (SDA) and GPIO3 (SCL)
+- ❌ **No external pull-up resistors required** for I²C lines
+- The RPI I²C bus is pre-configured for standard mode (100 kHz) and fast mode (400 kHz)
+
+### I²C Address Allocation & Collision Check
+
+| Sensor | Address (hex) | Address (dec) | I²C Bus | Notes |
+|--------|---------------|---------------|---------|-------|
+| **SPS30** | 0x68 | 104 | I²C-1 | Particulate matter (PM1.0, PM2.5, PM4.0, PM10) |
+| **SHT3X** (ADDR→GND) | 0x44 | 68 | I²C-1 | Temperature & Humidity (default config) |
+| **SHT3X** (ADDR→VDD) | 0x45 | 69 | I²C-1 | Alternative address if two SHT3X sensors needed |
+| **DHT11** | N/A (GPIO) | N/A | GPIO4 | Single-wire protocol, not I²C |
+
+**Address Status:** ✅ **No collisions.** Each I²C device has a unique address on the bus.
+
+### Voltage Rails & Power Domains
+
+| Device | VDC Required | RPI Pin | Comments |
+|--------|--------------|---------|----------|
+| **SPS30** | 5.0V ± 5% | Pin 2 | **CRITICAL:** Must use 5V. Does not tolerate 3.3V. |
+| **SHT3X** | 3.3V (nom.) | Pin 1 | Spec: 2.15V–5.5V, but 3.3V recommended for I²C compatibility. |
+| **DHT11** | 3.3V–5.5V | Pin 1 or Pin 2 | Flexible. Use Pin 1 (3.3V) for safer margin. |
+| **RPI Logic** | 3.3V | GPIO2, GPIO3 | SDA/SCL logic levels are 3.3V. |
+
+**Important:** SPS30 I²C data lines (SDA/SCL) are internally 3.3V tolerant despite 5V power supply. No level shifter required.
+
+### ⚠️ Voltage Domain Verification Checklist
+
+Before powering the system:
+
+- [ ] **SPS30:** VDD connected to **Pin 2 (5V)**, NOT Pin 1 (3.3V)
+- [ ] **SHT3X:** VCC connected to **Pin 1 (3.3V)**
+- [ ] **DHT11:** VCC connected to **Pin 1 (3.3V)** or **Pin 2 (5V)** (your choice)
+- [ ] **GND:** All sensors share common ground on Pins 6, 9, 14, 20, 25, 30, 34, 39
+- [ ] **I²C Lines:** SDA (GPIO2, Pin 3) and SCL (GPIO3, Pin 5) are 3.3V logic only
+- [ ] **No external pullups** added to SDA/SCL (RPI internal pullups sufficient)
+
+**Result:** If all items checked, I²C communication will be stable at 100–400 kHz.
+
+---
 
 ---
 
@@ -146,38 +203,49 @@ Access the dashboard from any device on the network:
 ╚══════════════╩════════════════════╩═════════════════╝
 ```
 
-> ⚠️ DO NOT connect SPS30 VDD to 3.3V. Sensor requires 5V power.
+> ⚠️ **CRITICAL:** DO NOT connect SPS30 VDD to Pin 1 (3.3V). Must use Pin 2 (5V).
+> The SPS30 I²C data lines are 3.3V tolerant internally—no level shifter needed for logic signals.
 
 ---
 
 ### 🌡️ SHT31 (I²C Temp/Humidity Sensor) → Raspberry Pi
 
 ```
-╔═════════════════════╦═══════════════════════════════╗
-║ SHT31 Signal        ║ Raspberry Pi GPIO Pin         ║
-╠═════════════════════╬═══════════════════════════════╣
-║ VCC                 ║ Pin 1 (3.3V)                  ║
-║ GND                 ║ Pin 6 (GND)                   ║
-║ SDA                 ║ Pin 3 (GPIO2 / SDA)           ║
-║ SCL                 ║ Pin 5 (GPIO3 / SCL)           ║
-╚═════════════════════╩═══════════════════════════════╝
+╔═════════════════════╦═══════════════════════════════════════════════════════╗
+║ SHT31 Signal        ║ Raspberry Pi GPIO Pin & I²C Configuration              ║
+╠═════════════════════╬═══════════════════════════════════════════════════════╣
+║ VCC                 ║ Pin 1 (3.3V)                                          ║
+║ GND                 ║ Pin 6 (GND)                                           ║
+║ SDA                 ║ Pin 3 (GPIO2 / SDA) — Shared I²C Data Line            ║
+║ SCL                 ║ Pin 5 (GPIO3 / SCL) — Shared I²C Clock Line           ║
+║ ADDR                ║ Pin 6 (GND) → I²C Address: 0x44 (default)             ║
+║ ADDR                ║ Pin 1 (3.3V) → I²C Address: 0x45 (alternative)        ║
+╚═════════════════════╩═══════════════════════════════════════════════════════╝
 ```
+
+**I²C Bus Configuration:** SHT31 communicates on the shared I²C-1 bus. No external pull-ups needed.
 
 ---
 
-### 🌡️ DHT11 (1-Wire GPIO Temp/Humidity Sensor) → Raspberry Pi
+### 🌡️ DHT11 (Single-Wire GPIO Temp/Humidity Sensor) → Raspberry Pi
 
 ```
-╔═════════════════════╦═══════════════════════════════╗
-║ DHT11 Signal        ║ Raspberry Pi GPIO Pin         ║
-╠═════════════════════╬═══════════════════════════════╣
-║ VCC                 ║ Pin 1 (3.3V) or Pin 2 (5V)     ║
-║ DATA                ║ Pin 11 (GPIO17)               ║
-║ GND                 ║ Pin 6 (GND)                   ║
-╚═════════════════════╩═══════════════════════════════╝
+╔═════════════════════╦═══════════════════════════════════════════════════════╗
+║ DHT11 Signal        ║ Raspberry Pi GPIO Pin & Notes                          ║
+╠═════════════════════╬═══════════════════════════════════════════════════════╣
+║ VCC                 ║ Pin 1 (3.3V) recommended, or Pin 2 (5V)                ║
+║ DATA                ║ Pin 11 (GPIO17) — Single-wire protocol                 ║
+║ GND                 ║ Pin 6 (GND) — Shared Ground                            ║
+╚═════════════════════╩═══════════════════════════════════════════════════════╝
 ```
 
-> ⚠️ Use a 10kΩ pull-up resistor between DATA and VCC if not included on the module.
+**Protocol:** DHT11 uses a proprietary single-wire protocol (not I²C).
+
+**Pull-up Configuration:**
+- ✅ If your DHT11 module has internal pull-up: No external resistor needed
+- ⚠️ If module lacks pull-up: Add 10kΩ pull-up resistor between DATA (GPIO17) and VCC
+
+**Note:** DHT11 is mutually exclusive with SHT3X sensors in the current config.py. Choose one temperature/humidity source.
 
 ---
 
@@ -186,28 +254,31 @@ Access the dashboard from any device on the network:
 The SHT3X family includes **SHT30**, **SHT31**, and **SHT35** variants. All use the same I²C interface.
 
 ```
-╔═════════════════════╦═══════════════════════════════╗
-║ SHT3X Signal        ║ Raspberry Pi GPIO Pin         ║
-╠═════════════════════╬═══════════════════════════════╣
-║ VCC                 ║ Pin 1 (3.3V)                  ║
-║ GND                 ║ Pin 6 (GND)                   ║
-║ SDA                 ║ Pin 3 (GPIO2 / SDA)           ║
-║ SCL                 ║ Pin 5 (GPIO3 / SCL)           ║
-║ ADDR                ║ Pin 6 (GND) for 0x44 address  ║
-║ ADDR                ║ Pin 2 (3.3V) for 0x45 address ║
-╚═════════════════════╩═══════════════════════════════╝
+╔═════════════════════╦═════════════════════════════════════════════════════════╗
+║ SHT3X Signal        ║ Raspberry Pi GPIO Pin & I²C Configuration                ║
+╠═════════════════════╬═════════════════════════════════════════════════════════╣
+║ VCC                 ║ Pin 1 (3.3V)                                            ║
+║ GND                 ║ Pin 6 (GND) — Shared Ground                             ║
+║ SDA                 ║ Pin 3 (GPIO2 / SDA) — Shared I²C Data Line              ║
+║ SCL                 ║ Pin 5 (GPIO3 / SCL) — Shared I²C Clock Line             ║
+║ ADDR                ║ Pin 6 (GND) → I²C Address 0x44 (default)                ║
+║ ADDR                ║ Pin 1 (3.3V) → I²C Address 0x45 (alternative)           ║
+╚═════════════════════╩═════════════════════════════════════════════════════════╝
 ```
 
 **Specifications:**
-- **Power:** 2.15V to 5.5V (3.3V recommended)
-- **I²C Addresses:** 0x44 (default, ADDR→GND), 0x45 (ADDR→VDD)
+- **Power:** 2.15V to 5.5V (3.3V recommended for stable I²C)
+- **I²C Addresses:** 0x44 (ADDR→GND, default), 0x45 (ADDR→VDD, for second sensor)
 - **Accuracy:** ±1.5% RH, ±0.1°C (SHT35) | ±2% RH, ±0.2°C (SHT30/31)
 - **Response time:** <2 sec (temperature), <8 sec (humidity)
+- **Bus:** Shared I²C-1 (GPIO2 SDA, GPIO3 SCL) with internal pull-ups
 
 **Configuration in `config.py`:**
 ```python
 SENSOR_TYPE = "SHT3X"  # or "SHT31" (backward compatible)
 ```
+
+**Multiple SHT3X Support:** You can connect two SHT3X sensors on the same I²C bus by setting their ADDR pins differently (one to GND for 0x44, one to VDD for 0x45). However, the current codebase only reads from one sensor. Extend `sensors/sht31.py` to support address parameter if needed.
 
 ---
 

@@ -131,6 +131,7 @@ install_python_dependencies() {
         "adafruit-circuitpython-busio"
         "adafruit-circuitpython-sht31d"
         "adafruit-circuitpython-dht"
+        "RPi.GPIO"
         "board"
         "busio"
         "flask"

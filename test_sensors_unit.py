@@ -9,6 +9,7 @@ Usage:
     python3 test_sensors_unit.py --sht3x             # Test SHT3x sensor
     python3 test_sensors_unit.py --sps30             # Test SPS30 sensor
     python3 test_sensors_unit.py --dht11             # Test DHT11 sensor
+    python3 test_sensors_unit.py --ppd42             # Test PPD42 dust sensor
     python3 test_sensors_unit.py --all               # Test all sensors
 """
 
@@ -136,7 +137,7 @@ def test_sht3x(address=0x44, iterations=3):
 def test_sps30(iterations=3):
     """Test SPS30 sensor."""
     print("\n" + "="*60)
-    print("SPS30 SENSOR TEST (I2C Address: 0x69)")
+    print("SPS30 SENSOR TEST (I2C Address: 0x68)")
     print("="*60)
 
     try:
@@ -240,6 +241,52 @@ def test_dht11(pin=4, iterations=3):
         sys.exit(1)
 
 
+def test_ppd42(pin=23, particle_size=2.5, sample_duration=5, iterations=3):
+    """Test PPD42 dust sensor (GPIO-based)."""
+    print("\n" + "="*60)
+    print(f"PPD42 DUST SENSOR TEST (GPIO Pin: {pin}, PM{particle_size})")
+    print("="*60)
+
+    try:
+        from sensors.ppd42 import PPD42Sensor
+
+        print(f"Connecting to PPD42 on GPIO{pin}...")
+        sensor = PPD42Sensor(pin=pin, particle_size=particle_size)
+
+        print(f"{'Attempt':<10} {'Particle Count':<20} {'Unit':<20} {'Status'}")
+        print("-" * 70)
+
+        for i in range(1, iterations + 1):
+            try:
+                reading = sensor.get_reading(sample_duration=sample_duration)
+
+                if reading is None:
+                    print(f"{i:<10} {'N/A':<20} {'N/A':<20} FAILED - None returned")
+                else:
+                    status = "✓ OK"
+                    particle_count = reading.get("particle_count", 0)
+                    unit = reading.get("unit", "unknown")
+                    print(f"{i:<10} {particle_count:<20.2f} {unit:<20} {status}")
+
+            except Exception as e:
+                print(f"{i:<10} {'ERROR':<20} {'ERROR':<20} {str(e)[:30]}")
+                sys.exit(1)
+
+            if i < iterations:
+                time.sleep(2)  # PPD42 needs time between reads
+
+        sensor.cleanup()
+        print("\n✓ PPD42 test PASSED")
+
+    except ImportError as e:
+        print(f"ERROR: Required library not installed or sensor module not found: {e}")
+        print("Ensure sensors/ppd42.py exists and RPi.GPIO is installed")
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ PPD42 test FAILED: {e}")
+        sys.exit(1)
+
+
 def test_all_sensors():
     """Test all available sensors."""
     print("\n" + "="*60)
@@ -283,6 +330,19 @@ def test_all_sensors():
     except Exception:
         results.append(("DHT11 Sensor", "SKIPPED"))
 
+    # Test PPD42
+    try:
+        from config import PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE
+        if PPD42_ENABLED:
+            test_ppd42(pin=PPD42_PIN, particle_size=PPD42_PARTICLE_SIZE, sample_duration=5, iterations=1)
+            results.append(("PPD42 Sensor", "PASSED"))
+        else:
+            results.append(("PPD42 Sensor", "DISABLED"))
+    except SystemExit:
+        results.append(("PPD42 Sensor", "FAILED"))
+    except Exception:
+        results.append(("PPD42 Sensor", "SKIPPED"))
+
     # Summary
     print("\n" + "="*60)
     print("TEST SUMMARY")
@@ -303,8 +363,10 @@ Examples:
   python3 test_sensors_unit.py --sht3x         # Test SHT3x sensor
   python3 test_sensors_unit.py --sps30         # Test SPS30 sensor
   python3 test_sensors_unit.py --dht11         # Test DHT11 sensor
+  python3 test_sensors_unit.py --ppd42         # Test PPD42 dust sensor
   python3 test_sensors_unit.py --all           # Test all sensors
   python3 test_sensors_unit.py --sht3x --addr 0x45  # Test SHT3x at alt address
+  python3 test_sensors_unit.py --ppd42 --ppd42-size 10  # Test PPD42 as PM10
         """
     )
 
@@ -312,11 +374,16 @@ Examples:
     parser.add_argument("--sht3x", action="store_true", help="Test SHT3x sensor")
     parser.add_argument("--sps30", action="store_true", help="Test SPS30 sensor")
     parser.add_argument("--dht11", action="store_true", help="Test DHT11 sensor")
+    parser.add_argument("--ppd42", action="store_true", help="Test PPD42 dust sensor")
     parser.add_argument("--all", action="store_true", help="Test all sensors")
     parser.add_argument("--addr", type=str, default="0x44",
                        help="I2C address for SHT3x (default: 0x44)")
     parser.add_argument("--pin", type=int, default=4,
                        help="GPIO pin for DHT11 (default: 4)")
+    parser.add_argument("--ppd42-pin", type=int, default=23,
+                       help="GPIO pin for PPD42 (default: 23)")
+    parser.add_argument("--ppd42-size", type=float, default=2.5,
+                       help="Particle size for PPD42 in µm (default: 2.5 for PM2.5)")
     parser.add_argument("--iterations", "-n", type=int, default=3,
                        help="Number of read iterations per sensor (default: 3)")
 
@@ -338,6 +405,8 @@ Examples:
         test_sps30(iterations=args.iterations)
     elif args.dht11:
         test_dht11(pin=args.pin, iterations=args.iterations)
+    elif args.ppd42:
+        test_ppd42(pin=args.ppd42_pin, particle_size=args.ppd42_size, sample_duration=5, iterations=args.iterations)
     elif args.all:
         test_all_sensors()
     else:

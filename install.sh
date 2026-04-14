@@ -16,7 +16,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 echo "[3.3/5] Installing required Python packages inside venv..."
-pip install --break-system-packages adafruit-circuitpython-dht paho-mqtt RPi.GPIO flask
+pip install --break-system-packages adafruit-circuitpython-dht paho-mqtt RPi.GPIO flask adafruit-circuitpython-busio adafruit-circuitpython-sht31d
 
 echo "[3.4/5] Verifying Python packages installed..."
 REQUIRED_PKG=(paho-mqtt adafruit-circuitpython-dht RPi.GPIO flask)
