@@ -195,11 +195,18 @@
     font-family: 'JetBrains Mono', monospace;
     flex-shrink: 0;
   }
+  .chart-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+  }
   canvas {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    max-height: 100% !important;
-    display: block !important;
   }
 
   /* ── FOOTER ─────────────────────────────────────── */
@@ -276,11 +283,15 @@
 <div class="chart-section">
   <div class="chart-panel">
     <div class="chart-title">Particulate Matter</div>
-    <canvas id="pmChart"></canvas>
+    <div class="chart-container">
+      <canvas id="pmChart"></canvas>
+    </div>
   </div>
   <div class="chart-panel">
     <div class="chart-title">Temperature & Humidity</div>
-    <canvas id="envChart"></canvas>
+    <div class="chart-container">
+      <canvas id="envChart"></canvas>
+    </div>
   </div>
 </div>
 
@@ -293,6 +304,7 @@ const chartDefaults = {
   maintainAspectRatio: false,
   animation: { duration: 400 },
   interaction: { mode: 'index', intersect: false },
+  onResize: null,
   plugins: {
     legend: {
       labels: {
