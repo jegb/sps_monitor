@@ -128,7 +128,10 @@ def main():
         if logging_enabled:
             store_to_db(pm_data, temp, humidity, particle_count, particle_size)
             if client:
-                publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
+                try:
+                    publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
+                except Exception as e:
+                    logging.debug(f"Failed to publish to MQTT: {e}")
 
         time.sleep(60)
 
