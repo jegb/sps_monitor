@@ -19,16 +19,34 @@ class SPS30Measurement(ctypes.Structure):
         ("typical_particle_size", ctypes.c_float),
     ]
 
-def read_sps30():
+def read_sps30(timeout=30):
+    """
+    Read measurement from SPS30 sensor.
+
+    Args:
+        timeout: Maximum seconds to wait for data ready (default: 30)
+
+    Returns:
+        SPS30Measurement object
+
+    Raises:
+        TimeoutError: If sensor doesn't respond within timeout
+    """
     sps30.sps30_start_measurement()
     time.sleep(8)
 
     data_ready = ctypes.c_uint16()
-    while True:
+    elapsed = 0
+    while elapsed < timeout:
         sps30.sps30_read_data_ready(ctypes.byref(data_ready))
         if data_ready.value:
             break
         time.sleep(1)
+        elapsed += 1
+
+    if elapsed >= timeout:
+        sps30.sps30_stop_measurement()
+        raise TimeoutError(f"SPS30 sensor did not respond within {timeout} seconds")
 
     measurement = SPS30Measurement()
     sps30.sps30_read_measurement(ctypes.byref(measurement))
