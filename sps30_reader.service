@@ -3,11 +3,12 @@ Description=SPS30 Sensor Reader with MQTT and SQLite
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/sps30_monitor/sensor_reader.py
-WorkingDirectory=/home/pi/sps30_monitor
-StandardOutput=inherit
-StandardError=inherit
+ExecStart=/home/pi/sps_monitor/venv/bin/python3 /home/pi/sps_monitor/sensor_reader.py
+WorkingDirectory=/home/pi/sps_monitor
+StandardOutput=journal
+StandardError=journal
 Restart=always
+RestartSec=10
 User=pi
 Environment=PYTHONUNBUFFERED=1
 
