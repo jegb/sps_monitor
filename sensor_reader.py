@@ -91,11 +91,17 @@ def main():
                 logging_enabled = False
                 logging.info("Logging disabled via MQTT.")
 
-    client = mqtt.Client()
-    client.on_message = lambda c, u, m: on_control(c, u, m)
-    client.connect(MQTT_BROKER)
-    client.subscribe("airquality/control/logging")
-    client.loop_start()
+    # Try to connect to MQTT broker, but don't fail if unavailable
+    client = None
+    try:
+        client = mqtt.Client()
+        client.on_message = lambda c, u, m: on_control(c, u, m)
+        client.connect(MQTT_BROKER)
+        client.subscribe("airquality/control/logging")
+        client.loop_start()
+        logging.info(f"Connected to MQTT broker at {MQTT_BROKER}")
+    except Exception as e:
+        logging.warning(f"MQTT broker unavailable ({MQTT_BROKER}): {e}. Continuing without MQTT.")
 
     while True:
         particle_count = None
@@ -121,7 +127,8 @@ def main():
 
         if logging_enabled:
             store_to_db(pm_data, temp, humidity, particle_count, particle_size)
-            publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
+            if client:
+                publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
 
         time.sleep(60)
 
