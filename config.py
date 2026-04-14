@@ -1,7 +1,7 @@
 # config.py
 
-EMULATE = True
-SENSOR_TYPE = "DHT11"  # Options: "DHT11", "SHT31", "SHT3X"
+EMULATE = False
+SENSOR_TYPE = "SHT3X"  # Options: "DHT11", "SHT31", "SHT3X"
 DHT11_PIN = 4          # GPIO pin for DHT11
 
 # SHT3X Configuration (SHT30, SHT31, SHT35 variants)
