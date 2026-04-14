@@ -26,8 +26,8 @@ done
 
 echo "[4/5] Using prebuilt SPS30 driver library included in the distribution."
 
-echo "[4.5/5] Installing libgpiod2 for GPIO access..."
-sudo apt install -y libgpiod2
+echo "[4.5/5] Installing libgpiod3 for GPIO access..."
+sudo apt install -y libgpiod3
 
 echo "[5/5] Done. Activate virtual environment with 'source venv/bin/activate' before running sensor_reader.py"
 

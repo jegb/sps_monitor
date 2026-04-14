@@ -106,6 +106,7 @@ install_system_dependencies() {
         "libi2c-dev"
         "build-essential"
         "git"
+        "libgpiod3"
     )
 
     for pkg in "${PACKAGES[@]}"; do
