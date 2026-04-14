@@ -79,13 +79,14 @@ def _read_words(bus, address, num_words):
     return words
 
 
-def read_sps30(bus_num=1, timeout=30):
+def read_sps30(bus_num=1, timeout=30, debug=False):
     """
     Read measurement from SPS30 sensor.
 
     Args:
         bus_num: I2C bus number (default: 1)
         timeout: Maximum seconds to wait for data ready (default: 30)
+        debug: Print debug messages (default: False)
 
     Returns:
         SPS30Measurement object
@@ -94,23 +95,46 @@ def read_sps30(bus_num=1, timeout=30):
         TimeoutError: If sensor doesn't respond within timeout
     """
     with SMBus(bus_num) as bus:
+        # Try waking up the sensor first
+        try:
+            if debug:
+                print("Waking up sensor...")
+            _write_command(bus, SPS30_I2C_ADDRESS, CMD_WAKEUP)
+            time.sleep(0.05)
+        except Exception as e:
+            if debug:
+                print(f"Wakeup error (may be OK): {e}")
+
         # Start measurement
+        if debug:
+            print("Starting measurement...")
         _write_command(bus, SPS30_I2C_ADDRESS, CMD_START_MEASUREMENT, [0x0300])
         time.sleep(1)  # Wait for sensor to stabilize
 
         # Wait for data ready
+        if debug:
+            print("Waiting for data ready...")
         start_time = time.time()
+        attempts = 0
         while (time.time() - start_time) < timeout:
             try:
+                attempts += 1
+                _write_command(bus, SPS30_I2C_ADDRESS, CMD_READ_DATA_READY)
+                time.sleep(0.02)
                 words = _read_words(bus, SPS30_I2C_ADDRESS, 1)
+                if debug and attempts % 5 == 0:
+                    print(f"Attempt {attempts}: data_ready = {words[0]}")
                 if words[0] == 1:  # Data ready
+                    if debug:
+                        print("Data ready!")
                     break
-            except Exception:
-                pass
+            except Exception as e:
+                if debug and attempts % 10 == 0:
+                    print(f"Read error: {e}")
             time.sleep(0.5)
         else:
             _write_command(bus, SPS30_I2C_ADDRESS, CMD_STOP_MEASUREMENT)
-            raise TimeoutError(f"SPS30 sensor did not respond within {timeout} seconds")
+            raise TimeoutError(f"SPS30 sensor did not respond within {timeout} seconds (attempted {attempts} times)")
 
         # Read measurement data (10 float values = 20 words)
         _write_command(bus, SPS30_I2C_ADDRESS, CMD_READ_MEASURED_VALUES)

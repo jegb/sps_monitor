@@ -161,7 +161,8 @@ def test_sps30(iterations=3):
 
         for i in range(1, iterations + 1):
             try:
-                data = read_sps30()
+                # Enable debug on first iteration
+                data = read_sps30(debug=(i==1))
 
                 if data is None:
                     print(f"{i:<10} {'N/A':<12} {'N/A':<12} {'N/A':<12} {'N/A':<12} FAILED")
