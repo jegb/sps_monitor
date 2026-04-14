@@ -288,6 +288,7 @@ After=network.target
 
 [Service]
 Type=simple
+WorkingDirectory={SCRIPT_DIR}
 ExecStart={SCRIPT_DIR}/venv/bin/python3 {SCRIPT_DIR}/sensor_reader.py
 Restart=always
 RestartSec=10
@@ -341,6 +342,7 @@ After=network.target sps30-reader.service
 
 [Service]
 Type=simple
+WorkingDirectory={SCRIPT_DIR}
 ExecStart={SCRIPT_DIR}/venv/bin/python3 {SCRIPT_DIR}/web_server.py --port 5000
 Restart=always
 RestartSec=10
