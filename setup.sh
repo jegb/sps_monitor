@@ -128,6 +128,7 @@ install_python_dependencies() {
 
     PYTHON_PACKAGES=(
         "paho-mqtt"
+        "adafruit-blinka"
         "adafruit-circuitpython-busio"
         "adafruit-circuitpython-sht31d"
         "adafruit-circuitpython-dht"
