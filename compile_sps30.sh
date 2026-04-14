@@ -22,12 +22,13 @@ if [ -f "$LIB_DIR/libsps30.so" ]; then
 
     # Verify it's the correct architecture
     if file "$LIB_DIR/libsps30.so" | grep -q "$ARCH"; then
-        echo "✓ Library is already compiled for $ARCH"
-        read -p "Recompile anyway? (y/n): " recompile
-        if [ "$recompile" != "y" ]; then
-            echo "Skipping compilation."
-            exit 0
-        fi
+        echo "✓ Library is already compiled for $ARCH and working"
+        echo "✓ No recompilation needed"
+        echo ""
+        echo "To force recompilation, delete the file first:"
+        echo "  rm $LIB_DIR/libsps30.so"
+        echo "  ./compile_sps30.sh"
+        exit 0
     else
         echo "⚠️  Library is for wrong architecture, recompiling..."
     fi
