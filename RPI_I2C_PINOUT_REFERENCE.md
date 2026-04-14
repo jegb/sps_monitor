@@ -100,23 +100,25 @@ Typical consumption:
 
 ### SPS30 (Particulate Matter Sensor)
 
+**Sensor Connector Pinout (JST ZHR-5):**
 ```
 Sensor Pin  │ Signal   │ RPI Pin          │ Voltage
 ────────────┼──────────┼──────────────────┼──────────
 1           │ VDD      │ Pin 2 (5V)       │ 5.0V ± 5%
-2           │ GND      │ Pin 6 (GND)      │ Ground
-3           │ SDA      │ Pin 3 (GPIO2)    │ 3.3V logic
-4           │ SCL      │ Pin 5 (GPIO3)    │ 3.3V logic
-5           │ SEL      │ Pin 6 (GND)      │ Force I²C mode
+2           │ SDA      │ Pin 3 (GPIO2)    │ 3.3V logic
+3           │ SCL      │ Pin 5 (GPIO3)    │ 3.3V logic
+4           │ SEL      │ Pin 6 (GND)      │ Force I²C mode
+5           │ GND      │ Pin 6 (GND)      │ Ground
 ```
 
 | Property | Value |
 |----------|-------|
-| **I²C Address** | 0x68 (104 dec) |
+| **I²C Address** | **0x69** (105 dec) |
 | **Power** | 5.0V ONLY (4.75V–5.25V) |
 | **Protocol** | I²C, Standard/Fast Mode (100–400 kHz) |
 | **Startup Time** | ~8 seconds for data stabilization |
 | **Pull-ups** | RPI internal (no external needed) |
+| **Driver** | Pure Python I2C driver (architecture-independent) |
 
 ---
 
@@ -236,7 +238,7 @@ I²C Address Allocation Table:
 Active Addresses (This Project):
 ├─ 0x44 (68 dec)  │ SHT3X (ADDR→GND) ✓
 ├─ 0x45 (69 dec)  │ SHT3X (ADDR→VDD) ✓
-├─ 0x68 (104 dec) │ SPS30 ✓
+├─ 0x69 (105 dec) │ SPS30 ✓
 └─ (others)       │ Available for expansion
 
 Status: ✅ NO COLLISIONS
@@ -268,7 +270,7 @@ i2cdetect -y 1
 i2cget -y 1 0x68
 ```
 
-### Symptom: "I²C device at 0x68 but SPS30 test fails"
+### Symptom: "I²C device at 0x69 but SPS30 test fails"
 
 **Likely causes:**
 1. SEL pin not connected to GND (forces SPI mode)
@@ -278,9 +280,9 @@ i2cget -y 1 0x68
 
 **Fix:**
 - Verify SPS30 SEL pin on GND
-- Check 5V voltage with multimeter
+- Check 5V voltage with multimeter (should be 4.75V–5.25V)
 - Use short, twisted-pair wires for SDA/SCL
-- Add ferrite clamp on power line if noise detected
+- Pure Python driver works across all RPi models (RPi Zero, 2, 3, 4, 5)
 
 ### Symptom: "SHT3X at 0x44 but returns garbage data"
 

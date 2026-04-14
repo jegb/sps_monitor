@@ -2,20 +2,21 @@
 
 This project uses the Sensirion SPS30 (I²C) with optional SHT3X family sensors (SHT30/31/35) or DHT11 to monitor PM1.0, PM2.5, PM4.0, PM10, temperature, and humidity. Data is logged to SQLite and published via MQTT to Node-RED for visualization.
 
-**Supported Platforms:** Raspberry Pi 3 / Pi 4 / Pi 5 / **Pi Zero 2W** (original Pi Zero supported but slower)
-For detailed Pi Zero compatibility notes, see [RPI_ZERO_COMPATIBILITY.md](RPI_ZERO_COMPATIBILITY.md).
+**Supported Platforms:** Raspberry Pi Zero / Zero 2W / Pi 2 / Pi 3 / Pi 4 / Pi 5
+**Architecture-independent:** Pure Python I2C driver works on all models (32-bit and 64-bit).
 
 ---
 
 ## 📦 Features
 
-- SPS30 readings via official C driver wrapped in Python (I²C)
+- **SPS30 readings via pure Python I²C driver** (architecture-independent, works on all RPi models)
 - Modular sensor support for temperature and humidity (DHT11, SHT31, SHT3X family)
 - SQLite database storage with rotation options
 - **Web dashboard** with live + historical data visualization (Flask)
 - MQTT publishing for Node-RED integration
 - Optional systemd service for auto-start on boot
 - CLI tool for testing I²C + sensor integration
+- **No C compilation required** - pure Python implementation for SPS30
 
 ---
 
