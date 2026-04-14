@@ -4,7 +4,7 @@ Compatible with all Raspberry Pi models.
 """
 import time
 import struct
-from smbus2 import SMBus
+from smbus2 import SMBus, i2c_msg
 
 SPS30_I2C_ADDRESS = 0x69
 
@@ -60,7 +60,7 @@ def _write_command(bus, address, command, data=None):
 
 
 def _read_words(bus, address, num_words):
-    """Read words with CRC from SPS30."""
+    """Read words with CRC from SPS30 (for small reads < 32 bytes)."""
     # Each word is 2 bytes + 1 CRC byte
     num_bytes = num_words * 3
     raw_data = bus.read_i2c_block_data(address, 0x00, num_bytes)
@@ -71,7 +71,7 @@ def _read_words(bus, address, num_words):
         crc = raw_data[i+2]
 
         if _calculate_crc(word_bytes) != crc:
-            raise ValueError(f"CRC mismatch for word at position {i}")
+            raise ValueError(f"CRC mismatch for word at position {i//3}")
 
         word = (word_bytes[0] << 8) | word_bytes[1]
         words.append(word)
@@ -136,13 +136,34 @@ def read_sps30(bus_num=1, timeout=30, debug=False):
             _write_command(bus, SPS30_I2C_ADDRESS, CMD_STOP_MEASUREMENT)
             raise TimeoutError(f"SPS30 sensor did not respond within {timeout} seconds (attempted {attempts} times)")
 
-        # Read measurement data (10 float values = 20 words)
+        # Read measurement data (10 float values = 20 words = 60 bytes with CRC)
+        if debug:
+            print("Reading measurement data...")
         _write_command(bus, SPS30_I2C_ADDRESS, CMD_READ_MEASURED_VALUES)
         time.sleep(0.05)
-        words = _read_words(bus, SPS30_I2C_ADDRESS, 20)
+
+        # Use i2c_rdwr for reading more than 32 bytes
+        read_msg = i2c_msg.read(SPS30_I2C_ADDRESS, 60)
+        bus.i2c_rdwr(read_msg)
+        raw_data = list(read_msg)
+
+        # Parse words with CRC
+        words = []
+        for i in range(0, len(raw_data), 3):
+            word_bytes = raw_data[i:i+2]
+            crc = raw_data[i+2]
+
+            if _calculate_crc(word_bytes) != crc:
+                raise ValueError(f"CRC mismatch for word at position {i//3}")
+
+            word = (word_bytes[0] << 8) | word_bytes[1]
+            words.append(word)
 
         # Stop measurement
         _write_command(bus, SPS30_I2C_ADDRESS, CMD_STOP_MEASUREMENT)
+
+        if debug:
+            print(f"Read {len(words)} words successfully")
 
         # Parse measurement data
         measurement = SPS30Measurement()
