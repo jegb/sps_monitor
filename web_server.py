@@ -15,7 +15,6 @@ Accessible from any device on the same network at http://<pi-ip>:5000
 import sqlite3
 import json
 import argparse
-from datetime import datetime, timedelta
 from flask import Flask, jsonify, render_template, request
 
 # ---------------------------------------------------------------------------
@@ -120,14 +119,13 @@ def api_history():
     """
     range_param = request.args.get("range", "24h")
     range_map = {
-        "1h": timedelta(hours=1),
-        "6h": timedelta(hours=6),
-        "24h": timedelta(hours=24),
-        "7d": timedelta(days=7),
-        "30d": timedelta(days=30),
+        "1h": "-1 hour",
+        "6h": "-6 hours",
+        "24h": "-24 hours",
+        "7d": "-7 days",
+        "30d": "-30 days",
     }
-    delta = range_map.get(range_param, timedelta(hours=24))
-    cutoff = (datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
+    time_modifier = range_map.get(range_param, "-24 hours")
 
     schema = detect_schema(DB_FILE)
     cols = schema["cols"]
@@ -137,12 +135,12 @@ def api_history():
     sql = f"""
         SELECT {', '.join(select_cols)}
         FROM {table}
-        WHERE {cols['ts']} >= ?
+        WHERE {cols['ts']} >= datetime('now', '{time_modifier}')
         ORDER BY {cols['ts']} ASC
     """
 
     conn = get_db()
-    rows = conn.execute(sql, (cutoff,)).fetchall()
+    rows = conn.execute(sql).fetchall()
     conn.close()
 
     data = []
