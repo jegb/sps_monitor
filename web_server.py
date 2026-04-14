@@ -73,7 +73,7 @@ def detect_schema(db_path: str) -> dict:
 # ---------------------------------------------------------------------------
 # FLASK APP
 # ---------------------------------------------------------------------------
-app = Flask(__name__, template_folder="templates")
+app = Flask(__name__, template_folder=".")
 
 
 def get_db():
