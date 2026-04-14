@@ -140,7 +140,6 @@ def main():
         logging.warning("SPS30 not detected on I2C bus. PM readings will be skipped.")
 
     while True:
-        print(f"[LOOP] Starting iteration...", flush=True)
         particle_count = None
         particle_size = None
         pm_data = None
@@ -153,18 +152,13 @@ def main():
         else:
             if sps30_available:
                 try:
-                    print(f"[SPS30] Reading...", flush=True)
                     pm_data = read_sps30()
-                    print(f"[SPS30] Success: PM2.5={pm_data.mc_2p5}, PM10={pm_data.mc_10p0}", flush=True)
                     logging.info(f"PM2.5: {pm_data.mc_2p5}, PM10: {pm_data.mc_10p0}")
                 except Exception as e:
-                    print(f"[SPS30] Failed: {e}", flush=True)
                     logging.warning(f"SPS30 read failed: {e}")
                     pm_data = None
 
-            print(f"[TEMP] Reading...", flush=True)
             temp, humidity = temp_sensor.get_readings()
-            print(f"[TEMP] Success: {temp}°C, {humidity}%", flush=True)
             logging.info(f"Temp: {temp}°C, Humidity: {humidity}%")
 
             if ppd42_sensor:
@@ -174,20 +168,14 @@ def main():
                     particle_size = ppd42_reading.get("particle_size")
                     logging.info(f"PPD42 (PM{particle_size}): {particle_count} pcs/0.01cf")
 
-        print(f"[STORE] logging_enabled={logging_enabled}, pm_data={pm_data is not None}", flush=True)
         if logging_enabled and pm_data:
-            print(f"[STORE] Writing to DB...", flush=True)
             store_to_db(pm_data, temp, humidity, particle_count, particle_size)
-            print(f"[STORE] DB write complete", flush=True)
             if client:
                 try:
                     publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
                 except Exception as e:
                     logging.debug(f"Failed to publish to MQTT: {e}")
-        else:
-            print(f"[STORE] Skipped (logging_enabled={logging_enabled}, pm_data={pm_data})", flush=True)
 
-        print(f"[LOOP] Sleeping 60s...", flush=True)
         time.sleep(60)
 
 if __name__ == "__main__":
