@@ -19,9 +19,9 @@ sqlite3 "$DB_FILE" "SELECT COUNT(*) as current_rows FROM sps30_data;"
 
 echo ""
 echo "WARNING: This will delete all data in the database!"
-read -p "Are you sure you want to reset the database? (yes/no): " confirm
+read -p "Are you sure you want to reset the database? (y/n): " confirm
 
-if [ "$confirm" != "yes" ]; then
+if [ "$confirm" != "y" ] && [ "$confirm" != "yes" ]; then
     echo "Reset cancelled."
     exit 0
 fi
