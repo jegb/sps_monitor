@@ -357,14 +357,76 @@ EOF
 }
 
 ################################################################################
+# System Configuration
+################################################################################
+
+configure_hostname() {
+    section "CONFIGURING HOSTNAME"
+
+    HOSTNAME="sps-station"
+    CURRENT_HOSTNAME=$(hostname)
+
+    if [ "$CURRENT_HOSTNAME" = "$HOSTNAME" ]; then
+        success "Hostname already set to $HOSTNAME"
+        return
+    fi
+
+    log "Setting hostname to $HOSTNAME..."
+
+    # Check if we need sudo
+    if [ "$EUID" -ne 0 ]; then
+        log "Requesting sudo access to set hostname..."
+        sudo hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    else
+        hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    fi
+
+    # Verify avahi-daemon is installed for mDNS
+    if ! command -v avahi-daemon &> /dev/null; then
+        warn "avahi-daemon not installed. Installing for mDNS support..."
+        sudo apt-get install -y avahi-daemon 2>&1 | tee -a "$LOG_FILE" > /dev/null
+        sudo systemctl enable avahi-daemon
+        sudo systemctl start avahi-daemon
+    fi
+
+    success "Hostname set to $HOSTNAME"
+    success "Access dashboard at: http://$HOSTNAME.local:5000"
+    warn "Note: Reboot required for hostname change to take full effect"
+}
+
+enable_service_autostart() {
+    section "ENABLING AUTO-START ON BOOT"
+
+    if command -v loginctl &> /dev/null; then
+        log "Enabling linger for user $USER..."
+
+        # Check if linger is already enabled
+        if loginctl show-user "$USER" 2>/dev/null | grep -q "Linger=yes"; then
+            success "Linger already enabled for user $USER"
+        else
+            sudo loginctl enable-linger "$USER" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+            if loginctl show-user "$USER" 2>/dev/null | grep -q "Linger=yes"; then
+                success "Linger enabled for user $USER"
+                success "Services will auto-start on boot (no login required)"
+            else
+                warn "Failed to enable linger. Services will start only after user login."
+            fi
+        fi
+    else
+        warn "loginctl not available. Services may not auto-start on boot."
+    fi
+}
+
+################################################################################
 # Status & Summary
 ################################################################################
 
 show_status() {
     section "SYSTEM STATUS"
 
-    # Get Raspberry Pi IP
+    # Get Raspberry Pi IP and hostname
     PI_IP=$(hostname -I | awk '{print $1}')
+    PI_HOSTNAME=$(hostname)
 
     if [ -z "$PI_IP" ]; then
         PI_IP="<IP_ADDRESS>"
@@ -374,6 +436,7 @@ show_status() {
     echo -e "${GREEN}✓ Setup Complete!${NC}"
     echo ""
     echo "📊 Web Dashboard:"
+    echo "   http://$PI_HOSTNAME.local:5000  (recommended)"
     echo "   http://$PI_IP:5000"
     echo ""
     echo "📋 Data Collection:"
@@ -413,6 +476,7 @@ EOF
 
     # Run setup phases
     check_prerequisites
+    configure_hostname
     install_system_dependencies
     install_python_dependencies
     build_sps30_driver
@@ -420,6 +484,7 @@ EOF
     init_database
     start_sensor_reader
     start_web_server
+    enable_service_autostart
     show_status
 
     success "Setup completed successfully!"
@@ -462,12 +527,14 @@ case "${1:-}" in
     --skip-tests)
         log "Skipping hardware tests..."
         check_prerequisites
+        configure_hostname
         install_system_dependencies
         install_python_dependencies
         build_sps30_driver
         init_database
         start_sensor_reader
         start_web_server
+        enable_service_autostart
         show_status
         exit 0
         ;;
