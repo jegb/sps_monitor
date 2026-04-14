@@ -25,11 +25,11 @@ def scan_i2c_bus():
     print("="*60)
     try:
         # Import board FIRST to ensure busio gets the right one
-        from adafruit_blinka.board.raspberrypi import raspi_5
-        sys.modules['board'] = raspi_5
+        from adafruit_blinka.board.raspberrypi import raspi_40pin
+        sys.modules['board'] = raspi_40pin
 
         import busio
-        from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA
+        from adafruit_blinka.board.raspberrypi.raspi_40pin import SCL, SDA
 
         print("Initializing I2C bus (GPIO2/SDA, GPIO3/SCL)...")
         i2c = busio.I2C(SCL, SDA)
@@ -98,12 +98,12 @@ def test_sht3x(address=0x44, iterations=3):
 
     try:
         # Import board FIRST to ensure busio gets the right one
-        from adafruit_blinka.board.raspberrypi import raspi_5
-        sys.modules['board'] = raspi_5
+        from adafruit_blinka.board.raspberrypi import raspi_40pin
+        sys.modules['board'] = raspi_40pin
 
         import busio
         import adafruit_sht31d
-        from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA
+        from adafruit_blinka.board.raspberrypi.raspi_40pin import SCL, SDA
 
         print(f"Connecting to SHT3x at 0x{address:02X}...")
         i2c = busio.I2C(SCL, SDA)
@@ -193,11 +193,11 @@ def test_dht11(pin=4, iterations=3):
 
     try:
         # Import board FIRST to ensure adafruit_dht gets the right one
-        from adafruit_blinka.board.raspberrypi import raspi_5
-        sys.modules['board'] = raspi_5
+        from adafruit_blinka.board.raspberrypi import raspi_40pin
+        sys.modules['board'] = raspi_40pin
 
         import adafruit_dht
-        from adafruit_blinka.board.raspberrypi.raspi_5 import D4, D17, D22, D27
+        from adafruit_blinka.board.raspberrypi.raspi_40pin import D4, D17, D22, D27
 
         print(f"Connecting to DHT11 on GPIO{pin}...")
 
