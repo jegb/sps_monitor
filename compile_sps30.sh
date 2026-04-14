@@ -44,6 +44,22 @@ echo "Initializing submodules..."
 cd "$SOURCE_DIR"
 git submodule update --init --recursive
 
+# Verify critical submodules are present
+if [ ! -d "sps-common" ] || [ ! -f "sps-common/sps_git_version.c" ]; then
+    echo "⚠️  sps-common submodule missing, re-cloning repository..."
+    cd /
+    rm -rf "$SOURCE_DIR"
+    git clone https://github.com/Sensirion/embedded-sps.git "$SOURCE_DIR"
+    cd "$SOURCE_DIR"
+    git submodule update --init --recursive
+fi
+
+# Final verification
+if [ ! -f "sps-common/sps_git_version.c" ]; then
+    echo "✗ Failed to initialize sps-common submodule"
+    exit 1
+fi
+
 # Compile
 echo "Compiling SPS30 library for $ARCH..."
 cd "$SOURCE_DIR/sps30-i2c"
