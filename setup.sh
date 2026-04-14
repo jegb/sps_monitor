@@ -196,9 +196,23 @@ run_hardware_tests() {
     > "$SENSOR_RESULTS_FILE"
 
     # Test each sensor
-    for sensor in sht3x sps30 dht11; do
+    SENSORS_TO_TEST="sht3x sps30 dht11"
+
+    # Check if PPD42 is enabled in config
+    if grep -q "PPD42_ENABLED = True" "$SCRIPT_DIR/config.py"; then
+        SENSORS_TO_TEST="$SENSORS_TO_TEST ppd42"
+    fi
+
+    for sensor in $SENSORS_TO_TEST; do
         log "Testing $sensor..."
-        if timeout 30 python3 "$SCRIPT_DIR/test_sensors_unit.py" --$sensor -n 1 2>&1 | tee -a "$LOG_FILE" > /tmp/${sensor}_test.txt; then
+        if [ "$sensor" = "ppd42" ]; then
+            # PPD42 needs longer sample duration
+            timeout_duration=40
+        else
+            timeout_duration=30
+        fi
+
+        if timeout $timeout_duration python3 "$SCRIPT_DIR/test_sensors_unit.py" --$sensor -n 1 2>&1 | tee -a "$LOG_FILE" > /tmp/${sensor}_test.txt; then
             if grep -q "PASSED" /tmp/${sensor}_test.txt; then
                 success "$sensor test PASSED"
                 echo "$sensor=PASS" >> "$SENSOR_RESULTS_FILE"
