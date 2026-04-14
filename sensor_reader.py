@@ -24,13 +24,19 @@ def is_sps30_available():
         import busio
         from board import SCL, SDA
         i2c = busio.I2C(SCL, SDA)
-        if i2c.try_lock():
-            try:
-                i2c.writeto(0x68, b'')
-                i2c.unlock()
-                return True
-            except OSError:
-                return False
+
+        while not i2c.try_lock():
+            pass
+
+        try:
+            i2c.writeto(0x68, b'')
+            return True
+        except OSError:
+            # Device not responding at 0x68
+            return False
+        finally:
+            i2c.unlock()
+            i2c.deinit()
     except Exception as e:
         logging.warning(f"Error checking SPS30 availability: {e}")
         return False
