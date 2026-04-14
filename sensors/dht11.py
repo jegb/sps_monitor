@@ -1,9 +1,9 @@
 import time
-import board
 import adafruit_dht
+from adafruit_blinka.board.raspberrypi.raspi_5 import D4
 
 # Initialize the DHT device, with data pin connected to GPIO4
-dht_device = adafruit_dht.DHT11(board.D4)
+dht_device = adafruit_dht.DHT11(D4)
 
 def read():
     try:

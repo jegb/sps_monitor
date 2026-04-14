@@ -24,11 +24,11 @@ def scan_i2c_bus():
     print("I2C BUS SCAN")
     print("="*60)
     try:
-        import board
         import busio
+        from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA
 
         print("Initializing I2C bus (GPIO2/SDA, GPIO3/SCL)...")
-        i2c = busio.I2C(board.SCL, board.SDA)
+        i2c = busio.I2C(SCL, SDA)
 
         print(f"{'Address':<12} {'Hex':<8} {'Device':<30}")
         print("-" * 50)
@@ -93,12 +93,12 @@ def test_sht3x(address=0x44, iterations=3):
     print("="*60)
 
     try:
-        import board
         import busio
         import adafruit_sht31d
+        from adafruit_blinka.board.raspberrypi.raspi_5 import SCL, SDA
 
         print(f"Connecting to SHT3x at 0x{address:02X}...")
-        i2c = busio.I2C(board.SCL, board.SDA)
+        i2c = busio.I2C(SCL, SDA)
         sensor = adafruit_sht31d.SHT31D(i2c, address=address)
 
         print(f"{'Attempt':<10} {'Temp (°C)':<15} {'Humidity (%RH)':<20} {'Status'}")
@@ -184,17 +184,17 @@ def test_dht11(pin=4, iterations=3):
     print("="*60)
 
     try:
-        import board
         import adafruit_dht
+        from adafruit_blinka.board.raspberrypi.raspi_5 import D4, D17, D22, D27
 
         print(f"Connecting to DHT11 on GPIO{pin}...")
 
         # Map pin number to board pin
         pin_map = {
-            4: board.D4,
-            17: board.D17,
-            27: board.D27,
-            22: board.D22,
+            4: D4,
+            17: D17,
+            27: D27,
+            22: D22,
         }
 
         if pin not in pin_map:
