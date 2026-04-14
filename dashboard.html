@@ -306,7 +306,13 @@ const pmChart = new Chart(document.getElementById('pmChart'), {
       { label: 'PM10',   borderColor: '#f87171', data: [] },
     ]
   },
-  options: { ...chartDefaults },
+  options: {
+    ...chartDefaults,
+    scales: {
+      ...chartDefaults.scales,
+      y: { ...chartDefaults.scales.y, min: 0, max: 200 }
+    }
+  },
 });
 
 const envChart = new Chart(document.getElementById('envChart'), {
@@ -321,8 +327,8 @@ const envChart = new Chart(document.getElementById('envChart'), {
     ...chartDefaults,
     scales: {
       ...chartDefaults.scales,
-      y:  { ...chartDefaults.scales.y, position: 'left',  title: { display: true, text: '°C', color: '#7b8ba3' } },
-      y1: { ...chartDefaults.scales.y, position: 'right', title: { display: true, text: '%',  color: '#7b8ba3' }, grid: { drawOnChartArea: false } },
+      y:  { ...chartDefaults.scales.y, position: 'left',  min: -10, max: 50, title: { display: true, text: '°C', color: '#7b8ba3' } },
+      y1: { ...chartDefaults.scales.y, position: 'right', min: 0, max: 100, title: { display: true, text: '%',  color: '#7b8ba3' }, grid: { drawOnChartArea: false } },
     }
   },
 });
