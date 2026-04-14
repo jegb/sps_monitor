@@ -157,9 +157,13 @@ install_python_dependencies() {
     )
 
     for pkg in "${PYTHON_PACKAGES[@]}"; do
-        log "Installing Python package: $pkg..."
-        "$VENV_PIP" install "$pkg" 2>&1 | tee -a "$LOG_FILE" > /dev/null
-        success "Installed: $pkg"
+        if "$VENV_PIP" show "$pkg" &>/dev/null; then
+            success "$pkg already installed"
+        else
+            log "Installing Python package: $pkg..."
+            "$VENV_PIP" install "$pkg" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+            success "Installed: $pkg"
+        fi
     done
 }
 
