@@ -42,6 +42,17 @@ cd sps_monitor
 http://<raspberry-pi-ip>:5000
 ```
 
+### 📸 Dashboard Preview
+
+![SPS30 Dashboard](dashboard_sensirion.png)
+
+**Features:**
+- Real-time sensor readings (PM1.0, PM2.5, PM4.0, PM10, Temperature, Humidity)
+- Air quality indicator (Good/Moderate/Poor)
+- Interactive time-series charts with multiple time ranges (1H, 6H, 24H, 7D, 30D)
+- Responsive design for mobile and desktop
+- Auto-refresh every 30 seconds
+
 ---
 
 ## Setup Details
