@@ -168,13 +168,15 @@
     border-radius: 14px;
     padding: 16px;
     margin-bottom: 12px;
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .chart-panel:nth-child(1) {
-    height: 280px;
+    height: 300px;
   }
   .chart-panel:nth-child(2) {
-    height: 260px;
+    height: 280px;
   }
   .chart-title {
     font-size: 13px;
@@ -182,10 +184,13 @@
     color: var(--text-dim);
     margin-bottom: 12px;
     font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
   }
   canvas {
     width: 100% !important;
+    height: auto !important;
     display: block;
+    flex: 1;
   }
 
   /* ── FOOTER ─────────────────────────────────────── */
