@@ -135,7 +135,7 @@ def api_history():
     sql = f"""
         SELECT {', '.join(select_cols)}
         FROM {table}
-        WHERE {cols['ts']} >= datetime('now', '{time_modifier}')
+        WHERE {cols['ts']} >= datetime('now', 'localtime', '{time_modifier}')
         ORDER BY {cols['ts']} ASC
     """
 
