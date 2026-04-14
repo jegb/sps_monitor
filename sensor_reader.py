@@ -84,9 +84,10 @@ def generate_fake_readings():
 def store_to_db(pm_data, temp, humidity, particle_count=None, particle_size=None):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+    # Store as UTC - browser will convert to local time
     c.execute("""
         INSERT INTO sps30_data (timestamp, pm1, pm25, pm4, pm10, temp, humidity, particle_count, particle_size)
-        VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         pm_data.mc_1p0, pm_data.mc_2p5, pm_data.mc_4p0, pm_data.mc_10p0,
         temp, humidity, particle_count, particle_size

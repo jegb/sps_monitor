@@ -106,7 +106,11 @@ def api_latest():
     result = {}
     for key, col in cols.items():
         if col is not None:
-            result[key] = row[col]
+            # Add 'Z' suffix to timestamp to indicate UTC
+            if key == 'ts' and row[col]:
+                result[key] = row[col] + 'Z'
+            else:
+                result[key] = row[col]
     return jsonify(result)
 
 
@@ -132,10 +136,11 @@ def api_history():
     table = schema["table"]
 
     select_cols = [v for v in cols.values() if v is not None]
+    # Query using UTC time
     sql = f"""
         SELECT {', '.join(select_cols)}
         FROM {table}
-        WHERE {cols['ts']} >= datetime('now', 'localtime', '{time_modifier}')
+        WHERE {cols['ts']} >= datetime('now', '{time_modifier}')
         ORDER BY {cols['ts']} ASC
     """
 
@@ -148,7 +153,11 @@ def api_history():
         entry = {}
         for key, col in cols.items():
             if col is not None:
-                entry[key] = row[col]
+                # Add 'Z' suffix to timestamp to indicate UTC
+                if key == 'ts' and row[col]:
+                    entry[key] = row[col] + 'Z'
+                else:
+                    entry[key] = row[col]
         data.append(entry)
 
     return jsonify(data)
