@@ -189,9 +189,11 @@ run_hardware_tests() {
         error "test_sensors_unit.py not found!"
     fi
 
+    VENV_PYTHON="$VENV_DIR/bin/python3"
+
     # I2C Bus Scan
     log "Scanning I2C bus..."
-    if python3 "$SCRIPT_DIR/test_sensors_unit.py" --scan 2>&1 | tee -a "$LOG_FILE"; then
+    if "$VENV_PYTHON" "$SCRIPT_DIR/test_sensors_unit.py" --scan 2>&1 | tee -a "$LOG_FILE"; then
         success "I2C bus scan completed"
     else
         warn "I2C bus scan failed. Check your connections."
@@ -218,7 +220,7 @@ run_hardware_tests() {
             timeout_duration=30
         fi
 
-        if timeout $timeout_duration python3 "$SCRIPT_DIR/test_sensors_unit.py" --$sensor -n 1 2>&1 | tee -a "$LOG_FILE" > /tmp/${sensor}_test.txt; then
+        if timeout $timeout_duration "$VENV_PYTHON" "$SCRIPT_DIR/test_sensors_unit.py" --$sensor -n 1 2>&1 | tee -a "$LOG_FILE" > /tmp/${sensor}_test.txt; then
             if grep -q "PASSED" /tmp/${sensor}_test.txt; then
                 success "$sensor test PASSED"
                 echo "$sensor=PASS" >> "$SENSOR_RESULTS_FILE"
