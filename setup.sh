@@ -146,29 +146,11 @@ install_python_dependencies() {
 build_sps30_driver() {
     section "BUILDING SPS30 DRIVER"
 
-    if [ ! -f "$SCRIPT_DIR/c_sps30_i2c/libsps30.so" ]; then
-        log "Building SPS30 driver..."
-        cd "$SCRIPT_DIR/c_sps30_i2c"
-
-        if [ -f "RPI_DRIVER_BUILD.md" ]; then
-            # Extract and run build commands from documentation
-            log "Extracting build commands from documentation..."
-            # This is a simplified version - actual build varies by instructions
-            if [ -f "Makefile" ]; then
-                make clean
-                make
-                success "SPS30 driver built"
-            else
-                warn "SPS30 driver build instructions not found. See c_sps30_i2c/RPI_DRIVER_BUILD.md"
-            fi
-        else
-            warn "SPS30 driver build documentation not found. Skipping driver build."
-            warn "You may need to build manually: cd c_sps30_i2c && bash RPI_DRIVER_BUILD.md"
-        fi
-
-        cd "$SCRIPT_DIR"
+    log "Running SPS30 library compilation script..."
+    if "$SCRIPT_DIR/compile_sps30.sh" 2>&1 | tee -a "$LOG_FILE"; then
+        success "SPS30 driver built successfully"
     else
-        success "SPS30 driver already built"
+        error "SPS30 driver build failed. Run './compile_sps30.sh' manually to debug."
     fi
 }
 
