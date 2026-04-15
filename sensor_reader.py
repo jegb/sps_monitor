@@ -8,7 +8,7 @@ from board_detect import init_board
 # Initialize board BEFORE any adafruit imports
 board_module, board_name = init_board()
 
-from config import SENSOR_TYPE, EMULATE, PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE, PPD42_SAMPLE_DURATION
+from config import SENSOR_TYPE, EMULATE, PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE, PPD42_SAMPLE_DURATION, ADAFRUIT_IO_ENABLED, ADAFRUIT_IO_USERNAME, ADAFRUIT_IO_KEY
 if SENSOR_TYPE in ("SHT31", "SHT3X"):
     from sensors import sht31 as temp_sensor
 elif SENSOR_TYPE == "DHT11":
@@ -109,6 +109,40 @@ def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=
         payload["ppd42_particle_size"] = particle_size
     publish.single(MQTT_TOPIC, str(payload), hostname=MQTT_BROKER)
 
+def push_to_adafruit_io(pm_data, temp, humidity):
+    """Push sensor data to Adafruit IO cloud."""
+    if not ADAFRUIT_IO_ENABLED or not ADAFRUIT_IO_USERNAME or not ADAFRUIT_IO_KEY:
+        return
+
+    try:
+        import urllib.request
+        import json
+
+        base_url = f"https://io.adafruit.com/api/v2/{ADAFRUIT_IO_USERNAME}/feeds"
+        headers = {"X-AIO-Key": ADAFRUIT_IO_KEY}
+
+        feeds = {
+            "pm25": round(pm_data.mc_2p5, 1),
+            "pm10": round(pm_data.mc_10p0, 1),
+            "temperature": round(temp, 1),
+            "humidity": round(humidity, 1),
+        }
+
+        for feed_name, value in feeds.items():
+            try:
+                url = f"{base_url}/{feed_name}/data"
+                data = json.dumps({"value": value}).encode('utf-8')
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                req.add_header("Content-Type", "application/json")
+
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    if response.status != 201:
+                        logging.debug(f"Adafruit IO: {feed_name} response {response.status}")
+            except Exception as e:
+                logging.debug(f"Failed to push {feed_name} to Adafruit IO: {e}")
+    except Exception as e:
+        logging.warning(f"Adafruit IO push failed: {e}")
+
 def main():
     import paho.mqtt.client as mqtt
 
@@ -175,6 +209,10 @@ def main():
                     publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
                 except Exception as e:
                     logging.debug(f"Failed to publish to MQTT: {e}")
+            try:
+                push_to_adafruit_io(pm_data, temp, humidity)
+            except Exception as e:
+                logging.debug(f"Failed to push to Adafruit IO: {e}")
 
         time.sleep(60)
 
