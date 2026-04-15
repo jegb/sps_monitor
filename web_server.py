@@ -204,7 +204,7 @@ def api_system_status():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SPS30 Dashboard Server")
     parser.add_argument("--port", type=int, default=5000)
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address (127.0.0.1 for local only, 0.0.0.0 for all interfaces)")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Bind address (127.0.0.1 for local only, 0.0.0.0 for all interfaces)")
     parser.add_argument("--db", type=str, default="sps30_data.db")
     parser.add_argument("--ssl", action="store_true", help="Enable HTTPS with self-signed certificate")
     parser.add_argument("--debug", action="store_true")
