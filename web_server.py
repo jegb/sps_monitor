@@ -15,6 +15,7 @@ Accessible from any device on the same network at http://<pi-ip>:5000
 import sqlite3
 import json
 import argparse
+import shutil
 from flask import Flask, jsonify, render_template, request
 
 # ---------------------------------------------------------------------------
@@ -161,6 +162,40 @@ def api_history():
         data.append(entry)
 
     return jsonify(data)
+
+
+@app.route("/api/system-status")
+def api_system_status():
+    """Return system status including disk usage."""
+    try:
+        # Get disk usage for root filesystem
+        stat = shutil.disk_usage("/")
+
+        total = stat.total / (1024 * 1024 * 1024)  # Convert to GB
+        used = stat.used / (1024 * 1024 * 1024)
+        free = stat.free / (1024 * 1024 * 1024)
+        percent_used = (used / total) * 100 if total > 0 else 0
+
+        # Get database file size in MB
+        try:
+            import os
+            db_size = os.path.getsize(DB_FILE) / (1024 * 1024)
+        except:
+            db_size = 0
+
+        return jsonify({
+            "disk": {
+                "total_gb": round(total, 2),
+                "used_gb": round(used, 2),
+                "free_gb": round(free, 2),
+                "percent_used": round(percent_used, 1)
+            },
+            "database": {
+                "size_mb": round(db_size, 2)
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------

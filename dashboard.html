@@ -236,7 +236,10 @@
 
 <header>
   <h1><span class="dot"></span> SPS30</h1>
-  <span class="last-update" id="lastUpdate">--:--</span>
+  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+    <span class="last-update" id="lastUpdate">--:--</span>
+    <span class="last-update" id="diskUsage" style="font-size: 10px; color: var(--text-dim);">--%</span>
+  </div>
 </header>
 
 <!-- Live reading cards -->
@@ -431,6 +434,21 @@ async function fetchLatest() {
 
     document.getElementById('lastUpdate').textContent =
       d.ts ? new Date(d.ts).toLocaleTimeString() : new Date().toLocaleTimeString();
+
+    // Fetch and display disk usage
+    try {
+      const sysR = await fetch('/api/system-status');
+      if (sysR.ok) {
+        const sys = await sysR.json();
+        const diskPercent = sys.disk.percent_used;
+        const diskColor = diskPercent > 85 ? '#f87171' : diskPercent > 70 ? '#fbbf24' : '#34d399';
+        document.getElementById('diskUsage').textContent = `📦 ${diskPercent}%`;
+        document.getElementById('diskUsage').style.color = diskColor;
+      }
+    } catch (e) {
+      // Silently fail if system-status unavailable
+    }
+
     document.getElementById('statusBar').textContent = 'live';
     document.getElementById('statusBar').className = 'status-bar';
   } catch (e) {
