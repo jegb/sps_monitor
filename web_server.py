@@ -204,12 +204,30 @@ def api_system_status():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SPS30 Dashboard Server")
     parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address (127.0.0.1 for local only, 0.0.0.0 for all interfaces)")
     parser.add_argument("--db", type=str, default="sps30_data.db")
+    parser.add_argument("--ssl", action="store_true", help="Enable HTTPS with self-signed certificate")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     DB_FILE = args.db
     detect_schema(DB_FILE)  # validate on startup
 
-    print(f"🌫️  SPS30 Dashboard → http://0.0.0.0:{args.port}")
-    app.run(host="0.0.0.0", port=args.port, debug=args.debug)
+    protocol = "https" if args.ssl else "http"
+    port_display = 5443 if args.ssl else args.port
+    print(f"🌫️  SPS30 Dashboard → {protocol}://{args.host}:{port_display}")
+
+    # Setup HTTPS if requested
+    ssl_context = None
+    if args.ssl:
+        import os
+        cert_file = "cert.pem"
+        key_file = "key.pem"
+        if os.path.exists(cert_file) and os.path.exists(key_file):
+            ssl_context = (cert_file, key_file)
+            print(f"   Using SSL certificate: {cert_file}")
+        else:
+            print(f"   ⚠️  SSL requested but certificates not found at {cert_file}, {key_file}")
+            print(f"   Run: openssl req -x509 -newkey rsa:2048 -nodes -out cert.pem -keyout key.pem -days 365")
+
+    app.run(host=args.host, port=args.port, debug=args.debug, ssl_context=ssl_context)

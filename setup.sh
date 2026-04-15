@@ -417,6 +417,83 @@ setup_maintenance_cron() {
     fi
 }
 
+setup_firewall() {
+    section "CONFIGURING FIREWALL (UFW)"
+
+    # Detect local network (assume 0.x/24 or 1.x/24)
+    PI_IP=$(hostname -I | awk '{print $1}')
+    if [[ $PI_IP =~ ^192\.168\.0\. ]]; then
+        NETWORK="192.168.0.0/24"
+    elif [[ $PI_IP =~ ^192\.168\.1\. ]]; then
+        NETWORK="192.168.1.0/24"
+    elif [[ $PI_IP =~ ^10\.0\.0\. ]]; then
+        NETWORK="10.0.0.0/24"
+    elif [[ $PI_IP =~ ^10\. ]]; then
+        # Extract first 3 octets for /24 network
+        NETWORK=$(echo $PI_IP | awk -F. '{print $1"."$2"."$3".0/24"}')
+    else
+        NETWORK="192.168.0.0/24"  # fallback
+    fi
+
+    log "Detected IP: $PI_IP"
+    log "Local network: $NETWORK"
+
+    # Check if ufw is installed
+    if ! command -v ufw &> /dev/null; then
+        log "Installing UFW..."
+        sudo apt-get install -y ufw 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    fi
+
+    # Enable UFW
+    log "Enabling firewall..."
+    sudo ufw --force enable 2>&1 | tee -a "$LOG_FILE" > /dev/null
+
+    # Set default policies
+    sudo ufw default deny incoming 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    sudo ufw default allow outgoing 2>&1 | tee -a "$LOG_FILE" > /dev/null
+
+    # Allow SSH (from local network only)
+    log "Allowing SSH from local network..."
+    sudo ufw allow from "$NETWORK" to any port 22 2>&1 | tee -a "$LOG_FILE" > /dev/null
+
+    # Allow dashboard (HTTP from local network)
+    log "Allowing dashboard access from local network (HTTP)..."
+    sudo ufw allow from "$NETWORK" to any port 5000 2>&1 | tee -a "$LOG_FILE" > /dev/null
+
+    # Allow dashboard (HTTPS from local network)
+    log "Allowing dashboard access from local network (HTTPS)..."
+    sudo ufw allow from "$NETWORK" to any port 5443 2>&1 | tee -a "$LOG_FILE" > /dev/null
+
+    success "Firewall configured"
+    log "Rules: SSH + HTTP/HTTPS from $NETWORK only"
+}
+
+generate_ssl_certificate() {
+    section "GENERATING SSL CERTIFICATE"
+
+    CERT_DIR="$SCRIPT_DIR"
+    CERT_FILE="$CERT_DIR/cert.pem"
+    KEY_FILE="$CERT_DIR/key.pem"
+
+    if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
+        success "SSL certificate already exists"
+        return
+    fi
+
+    log "Generating self-signed SSL certificate..."
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -out "$CERT_FILE" -keyout "$KEY_FILE" \
+        -days 365 -subj "/CN=$HOSTNAME.local" 2>&1 | tee -a "$LOG_FILE" > /dev/null
+
+    if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
+        success "SSL certificate generated"
+        log "Valid for 365 days"
+        log "Location: $CERT_FILE, $KEY_FILE"
+    else
+        error "Failed to generate SSL certificate"
+    fi
+}
+
 enable_service_autostart() {
     section "ENABLING AUTO-START ON BOOT"
 
@@ -444,12 +521,19 @@ show_status() {
     echo ""
     echo -e "${GREEN}✓ Setup Complete!${NC}"
     echo ""
-    echo "📊 Web Dashboard:"
-    echo "   http://$PI_HOSTNAME.local:5000  (recommended)"
-    echo "   http://$PI_IP:5000"
+    echo "📊 Web Dashboard (HTTPS):"
+    echo "   https://$PI_HOSTNAME.local:5443  (recommended)"
+    echo "   https://$PI_IP:5443"
+    echo "   Note: Self-signed certificate (browser warning is normal)"
     echo ""
     echo "📋 Data Collection:"
     echo "   $(sudo systemctl is-active sps30_reader.service 2>/dev/null && echo '✓ Active' || echo '⚠ Check logs')"
+    echo ""
+    echo "🔒 Security:"
+    echo "   Firewall (UFW):      $(sudo ufw status | head -1)"
+    echo "   Dashboard (local):   127.0.0.1:5443 (HTTPS only)"
+    echo "   Allowed from:        Local network only"
+    echo "   View rules:          sudo ufw status"
     echo ""
     echo "📝 Useful Commands:"
     echo "   View sensor logs:    sudo journalctl -u sps30_reader.service -f"
@@ -491,6 +575,8 @@ EOF
     install_python_dependencies
     run_hardware_tests
     init_database
+    setup_firewall
+    generate_ssl_certificate
     start_sensor_reader
     start_web_server
     setup_maintenance_cron
@@ -542,6 +628,8 @@ case "${1:-}" in
         create_venv
         install_python_dependencies
         init_database
+        setup_firewall
+        generate_ssl_certificate
         start_sensor_reader
         start_web_server
         setup_maintenance_cron
