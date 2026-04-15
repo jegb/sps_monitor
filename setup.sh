@@ -278,43 +278,22 @@ init_database() {
 start_sensor_reader() {
     section "STARTING SENSOR DATA COLLECTION"
 
-    log "Starting sensor_reader.py in background..."
+    log "Installing sensor reader as system-level service..."
 
-    # Create a simple systemd user service or screen session
     if command -v systemctl &> /dev/null; then
-        log "Creating systemd user service..."
+        # Copy service file to system location (uses repo file with correct naming)
+        log "Copying sps30_reader.service to /etc/systemd/system/..."
+        sudo cp "$SCRIPT_DIR/sps30_reader.service" /etc/systemd/system/
 
-        SERVICE_FILE="$HOME/.config/systemd/user/sps30-reader.service"
-        mkdir -p "$(dirname "$SERVICE_FILE")"
+        sudo systemctl daemon-reload
+        sudo systemctl enable sps30_reader.service
+        sudo systemctl start sps30_reader.service
 
-        cat > "$SERVICE_FILE" << 'EOF'
-[Unit]
-Description=SPS30 Sensor Data Reader
-After=network.target
+        sleep 2
 
-[Service]
-Type=simple
-WorkingDirectory={SCRIPT_DIR}
-ExecStart={SCRIPT_DIR}/venv/bin/python3 {SCRIPT_DIR}/sensor_reader.py
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=default.target
-EOF
-
-        # Replace placeholder
-        sed -i "s|{SCRIPT_DIR}|$SCRIPT_DIR|g" "$SERVICE_FILE"
-
-        systemctl --user daemon-reload
-        systemctl --user enable sps30-reader.service
-        systemctl --user start sps30-reader.service
-
-        if systemctl --user is-active sps30-reader.service &>/dev/null; then
-            success "Sensor reader started as systemd service"
-            success "View logs: journalctl --user -u sps30-reader.service -f"
+        if sudo systemctl is-active sps30_reader.service &>/dev/null; then
+            success "Sensor reader started as system service"
+            success "View logs: sudo journalctl -u sps30_reader.service -f"
         else
             error "Failed to start sensor reader service"
         fi
@@ -327,47 +306,27 @@ EOF
         success "Sensor reader started with PID $READER_PID"
         log "Logs at: $SCRIPT_DIR/sensor_reader.log"
     fi
-
-    sleep 2
 }
 
 start_web_server() {
     section "STARTING WEB DASHBOARD"
 
-    log "Starting Flask web server..."
+    log "Installing web server as system-level service..."
 
-    # Create systemd user service for web server
     if command -v systemctl &> /dev/null; then
-        SERVICE_FILE="$HOME/.config/systemd/user/sps30-webserver.service"
-        mkdir -p "$(dirname "$SERVICE_FILE")"
+        # Copy service file to system location (uses repo file with correct naming)
+        log "Copying sps30_webserver.service to /etc/systemd/system/..."
+        sudo cp "$SCRIPT_DIR/sps30_webserver.service" /etc/systemd/system/
 
-        cat > "$SERVICE_FILE" << 'EOF'
-[Unit]
-Description=SPS30 Web Dashboard
-After=network.target sps30-reader.service
+        sudo systemctl daemon-reload
+        sudo systemctl enable sps30_webserver.service
+        sudo systemctl start sps30_webserver.service
 
-[Service]
-Type=simple
-WorkingDirectory={SCRIPT_DIR}
-ExecStart={SCRIPT_DIR}/venv/bin/python3 {SCRIPT_DIR}/web_server.py --port 5000
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
+        sleep 2
 
-[Install]
-WantedBy=default.target
-EOF
-
-        sed -i "s|{SCRIPT_DIR}|$SCRIPT_DIR|g" "$SERVICE_FILE"
-
-        systemctl --user daemon-reload
-        systemctl --user enable sps30-webserver.service
-        systemctl --user start sps30-webserver.service
-
-        if systemctl --user is-active sps30-webserver.service &>/dev/null; then
-            success "Web server started as systemd service"
-            success "View logs: journalctl --user -u sps30-webserver.service -f"
+        if sudo systemctl is-active sps30_webserver.service &>/dev/null; then
+            success "Web server started as system service"
+            success "View logs: sudo journalctl -u sps30_webserver.service -f"
         else
             error "Failed to start web server"
         fi
@@ -379,8 +338,6 @@ EOF
         success "Web server started with PID $WEB_PID"
         log "Logs at: $SCRIPT_DIR/web_server.log"
     fi
-
-    sleep 2
 }
 
 ################################################################################
@@ -436,24 +393,10 @@ configure_hostname() {
 enable_service_autostart() {
     section "ENABLING AUTO-START ON BOOT"
 
-    if command -v loginctl &> /dev/null; then
-        log "Enabling linger for user $USER..."
-
-        # Check if linger is already enabled
-        if loginctl show-user "$USER" 2>/dev/null | grep -q "Linger=yes"; then
-            success "Linger already enabled for user $USER"
-        else
-            sudo loginctl enable-linger "$USER" 2>&1 | tee -a "$LOG_FILE" > /dev/null
-            if loginctl show-user "$USER" 2>/dev/null | grep -q "Linger=yes"; then
-                success "Linger enabled for user $USER"
-                success "Services will auto-start on boot (no login required)"
-            else
-                warn "Failed to enable linger. Services will start only after user login."
-            fi
-        fi
-    else
-        warn "loginctl not available. Services may not auto-start on boot."
-    fi
+    log "System-level services are configured to auto-start on boot via systemd"
+    success "sps30_reader.service enabled for multi-user.target"
+    success "sps30_webserver.service enabled for multi-user.target"
+    log "Services will start automatically after next reboot, no login required"
 }
 
 ################################################################################
@@ -479,13 +422,13 @@ show_status() {
     echo "   http://$PI_IP:5000"
     echo ""
     echo "📋 Data Collection:"
-    echo "   $(systemctl --user is-active sps30-reader.service 2>/dev/null && echo '✓ Active' || echo '⚠ Check logs')"
+    echo "   $(sudo systemctl is-active sps30_reader.service 2>/dev/null && echo '✓ Active' || echo '⚠ Check logs')"
     echo ""
     echo "📝 Useful Commands:"
-    echo "   View sensor logs:    journalctl --user -u sps30-reader.service -f"
-    echo "   View webserver logs: journalctl --user -u sps30-webserver.service -f"
-    echo "   Stop services:       systemctl --user stop sps30-reader.service sps30-webserver.service"
-    echo "   Restart services:    systemctl --user restart sps30-reader.service sps30-webserver.service"
+    echo "   View sensor logs:    sudo journalctl -u sps30_reader.service -f"
+    echo "   View webserver logs: sudo journalctl -u sps30_webserver.service -f"
+    echo "   Stop services:       sudo systemctl stop sps30_reader.service sps30_webserver.service"
+    echo "   Restart services:    sudo systemctl restart sps30_reader.service sps30_webserver.service"
     echo "   Run tests:           python3 $SCRIPT_DIR/test_sensors_unit.py --all"
     echo ""
     echo "📚 Documentation:"

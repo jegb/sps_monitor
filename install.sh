@@ -31,7 +31,13 @@ sudo apt install -y libgpiod3
 
 echo "[5/5] Done. Activate virtual environment with 'source venv/bin/activate' before running sensor_reader.py"
 
-echo "To enable systemd service:"
+echo "To enable systemd services (system-level, persist after reboot):"
 echo "  sudo cp sps30_reader.service /etc/systemd/system/"
-echo "  sudo systemctl enable sps30_reader"
-echo "  sudo systemctl start sps30_reader"
+echo "  sudo cp sps30_webserver.service /etc/systemd/system/"
+echo "  sudo systemctl daemon-reload"
+echo "  sudo systemctl enable sps30_reader.service sps30_webserver.service"
+echo "  sudo systemctl start sps30_reader.service sps30_webserver.service"
+echo ""
+echo "To view logs:"
+echo "  sudo journalctl -u sps30_reader.service -f"
+echo "  sudo journalctl -u sps30_webserver.service -f"
