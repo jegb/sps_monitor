@@ -142,6 +142,7 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
+    justify-content: flex-end;
   }
   .range-btn {
     font-family: 'JetBrains Mono', monospace;
@@ -219,23 +220,25 @@
     flex-shrink: 0;
   }
 
-  /* ── STATUS OVERLAY ─────────────────────────────── */
-  .status-bar {
-    text-align: center;
-    font-size: 12px;
+  /* ── STATUS MESSAGE ────────────────────────────── */
+  .status-message {
+    font-size: 11px;
     color: var(--text-dim);
-    padding: 4px;
     font-family: 'JetBrains Mono', monospace;
-    flex-shrink: 0;
-    height: auto;
+    height: 1em;
+    min-width: 80px;
+    text-align: right;
   }
-  .status-bar.error { color: var(--red); }
+  .status-message.error { color: var(--red); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1><span class="dot"></span> SPS30</h1>
+  <div>
+    <h1><span class="dot"></span> SPS30</h1>
+    <div class="status-message" id="statusMessage"></div>
+  </div>
   <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
     <span class="last-update" id="lastUpdate">--:--</span>
     <span class="last-update" id="diskUsage" style="font-size: 10px; color: var(--text-dim);">--%</span>
@@ -270,8 +273,6 @@
     <div class="card-value" id="hum">--<span class="card-unit">%</span></div>
   </div>
 </div>
-
-<div class="status-bar" id="statusBar">connecting…</div>
 
 <!-- Time range buttons -->
 <div class="range-bar">
@@ -449,11 +450,12 @@ async function fetchLatest() {
       // Silently fail if system-status unavailable
     }
 
-    document.getElementById('statusBar').textContent = 'live';
-    document.getElementById('statusBar').className = 'status-bar';
+    // Only show status message for errors, not for successful connections
+    document.getElementById('statusMessage').textContent = '';
+    document.getElementById('statusMessage').className = 'status-message';
   } catch (e) {
-    document.getElementById('statusBar').textContent = 'offline – retrying…';
-    document.getElementById('statusBar').className = 'status-bar error';
+    document.getElementById('statusMessage').textContent = 'offline';
+    document.getElementById('statusMessage').className = 'status-message error';
   }
 }
 
