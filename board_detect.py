@@ -4,8 +4,10 @@ Supports RPi 2, 3, 4, 5, Zero, Zero W, and variants.
 """
 
 import sys
+import logging
 from pathlib import Path
 
+_board_initialized = False
 
 def get_rpi_model():
     """Detect Raspberry Pi model from device tree."""
@@ -23,8 +25,12 @@ def get_board_module():
     """
     Auto-detect RPi model and return appropriate adafruit_blinka board module.
     """
+    global _board_initialized
     model = get_rpi_model()
-    print(f"Detected: {model}")
+
+    if not _board_initialized:
+        logging.info(f"Detected: {model}")
+        _board_initialized = True
 
     # Map models to board modules
     if "Raspberry Pi 5" in model:
