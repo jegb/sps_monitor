@@ -14,6 +14,11 @@ PPD42_PIN = 23                  # GPIO pin for PPD42 output
 PPD42_PARTICLE_SIZE = 2.5       # Particle size in µm (2.5=PM2.5, 10=PM10, custom=other)
 PPD42_SAMPLE_DURATION = 30      # Measurement duration in seconds
 
+# MQTT Broker (Optional)
+MQTT_ENABLED = False            # Enable/disable MQTT publishing
+MQTT_BROKER = "localhost"       # MQTT broker address
+MQTT_TOPIC = "airquality/sensor"  # MQTT topic for sensor data
+
 # Adafruit IO Cloud Integration (Optional)
 ADAFRUIT_IO_ENABLED = False     # Enable/disable cloud push to Adafruit IO
 ADAFRUIT_IO_USERNAME = ""       # Your Adafruit IO username

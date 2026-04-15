@@ -8,7 +8,7 @@ from board_detect import init_board
 # Initialize board BEFORE any adafruit imports
 board_module, board_name = init_board()
 
-from config import SENSOR_TYPE, EMULATE, PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE, PPD42_SAMPLE_DURATION, ADAFRUIT_IO_ENABLED, ADAFRUIT_IO_USERNAME, ADAFRUIT_IO_KEY
+from config import SENSOR_TYPE, EMULATE, PPD42_ENABLED, PPD42_PIN, PPD42_PARTICLE_SIZE, PPD42_SAMPLE_DURATION, MQTT_ENABLED, MQTT_BROKER, MQTT_TOPIC, ADAFRUIT_IO_ENABLED, ADAFRUIT_IO_USERNAME, ADAFRUIT_IO_KEY
 if SENSOR_TYPE in ("SHT31", "SHT3X"):
     from sensors import sht31 as temp_sensor
 elif SENSOR_TYPE == "DHT11":
@@ -67,8 +67,6 @@ class FakeMeasurement:
         self.typical_particle_size = f["typical_particle_size"]
 
 DB_FILE = "sps30_data.db"
-MQTT_BROKER = "localhost"
-MQTT_TOPIC = "airquality/sensor"
 
 def generate_fake_readings():
     return {
@@ -158,17 +156,18 @@ def main():
                 logging_enabled = False
                 logging.info("Logging disabled via MQTT.")
 
-    # Try to connect to MQTT broker, but don't fail if unavailable
+    # MQTT broker connection (optional)
     client = None
-    try:
-        client = mqtt.Client()
-        client.on_message = lambda c, u, m: on_control(c, u, m)
-        client.connect(MQTT_BROKER)
-        client.subscribe("airquality/control/logging")
-        client.loop_start()
-        logging.info(f"Connected to MQTT broker at {MQTT_BROKER}")
-    except Exception as e:
-        logging.warning(f"MQTT broker unavailable ({MQTT_BROKER}): {e}. Continuing without MQTT.")
+    if MQTT_ENABLED:
+        try:
+            client = mqtt.Client()
+            client.on_message = lambda c, u, m: on_control(c, u, m)
+            client.connect(MQTT_BROKER)
+            client.subscribe("airquality/control/logging")
+            client.loop_start()
+            logging.info(f"Connected to MQTT broker at {MQTT_BROKER}")
+        except Exception as e:
+            logging.warning(f"MQTT broker unavailable ({MQTT_BROKER}): {e}. Continuing without MQTT.")
 
     # Check SPS30 availability at startup
     sps30_available = is_sps30_available()
