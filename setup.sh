@@ -390,6 +390,40 @@ configure_hostname() {
     warn "Note: Reboot may be required for hostname change to take full effect"
 }
 
+setup_maintenance_cron() {
+    section "SETTING UP DATABASE MAINTENANCE"
+
+    CRON_SCHEDULE="0 2 * * *"  # 2 AM daily
+    CRON_CMD="cd $SCRIPT_DIR && $SCRIPT_DIR/venv/bin/python3 $SCRIPT_DIR/db_maintenance.py"
+    CRON_JOB="$CRON_SCHEDULE $CRON_CMD"
+    CRON_ID="# SPS30 Database Maintenance"
+
+    # Check if cron job already exists
+    if crontab -l 2>/dev/null | grep -q "db_maintenance.py"; then
+        success "Database maintenance cron job already configured"
+        return
+    fi
+
+    # Add cron job
+    log "Adding daily database maintenance to crontab..."
+    (crontab -l 2>/dev/null || echo "") | {
+        cat
+        echo "$CRON_ID"
+        echo "$CRON_JOB"
+    } | crontab -
+
+    if crontab -l 2>/dev/null | grep -q "db_maintenance.py"; then
+        success "Database maintenance cron job installed"
+        log "Schedule: Daily at 2:00 AM"
+        log "Retention: 90 days (3 months)"
+        log "View cron log: grep CRON /var/log/syslog"
+    else
+        warn "Failed to install cron job. Install manually:"
+        log "  crontab -e"
+        log "  Then add: $CRON_JOB"
+    fi
+}
+
 enable_service_autostart() {
     section "ENABLING AUTO-START ON BOOT"
 
@@ -467,6 +501,7 @@ EOF
     init_database
     start_sensor_reader
     start_web_server
+    setup_maintenance_cron
     enable_service_autostart
     show_status
 
@@ -518,6 +553,7 @@ case "${1:-}" in
         init_database
         start_sensor_reader
         start_web_server
+        setup_maintenance_cron
         enable_service_autostart
         show_status
         exit 0
