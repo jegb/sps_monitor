@@ -167,17 +167,6 @@ install_python_dependencies() {
     done
 }
 
-build_sps30_driver() {
-    section "BUILDING SPS30 DRIVER"
-
-    log "Running SPS30 library compilation script..."
-    if "$SCRIPT_DIR/compile_sps30.sh" 2>&1 | tee -a "$LOG_FILE"; then
-        success "SPS30 driver built successfully"
-    else
-        error "SPS30 driver build failed. Run './compile_sps30.sh' manually to debug."
-    fi
-}
-
 ################################################################################
 # Hardware Testing
 ################################################################################
@@ -500,7 +489,6 @@ EOF
     install_system_dependencies
     create_venv
     install_python_dependencies
-    build_sps30_driver
     run_hardware_tests
     init_database
     start_sensor_reader
@@ -553,7 +541,6 @@ case "${1:-}" in
         install_system_dependencies
         create_venv
         install_python_dependencies
-        build_sps30_driver
         init_database
         start_sensor_reader
         start_web_server
