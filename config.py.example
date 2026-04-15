@@ -1,4 +1,6 @@
-# config.py
+# config.py.example - Configuration template
+# Copy this to config.py and fill in your actual values
+# config.py is git-ignored, so your credentials stay local
 
 EMULATE = False
 SENSOR_TYPE = "SHT3X"  # Options: "DHT11", "SHT31", "SHT3X"

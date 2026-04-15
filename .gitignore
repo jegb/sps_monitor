@@ -15,3 +15,13 @@ c_sps30_i2c/libsps30.so
 __pycache__/
 *.pyc
 *.pyo
+
+# Credentials and local configuration (NEVER commit)
+config.py
+
+# SSL certificates (local, self-signed)
+cert.pem
+key.pem
+
+# Test files
+test_debug.py
