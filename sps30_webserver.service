@@ -1,0 +1,16 @@
+[Unit]
+Description=SPS30 Web Dashboard
+After=network.target sps30_reader.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/sps_monitor
+ExecStart=/home/pi/sps_monitor/venv/bin/python3 /home/pi/sps_monitor/web_server.py --port 5000
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
