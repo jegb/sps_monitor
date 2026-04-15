@@ -122,9 +122,11 @@ def push_to_adafruit_io(pm_data, temp, humidity):
         headers = {"X-AIO-Key": ADAFRUIT_IO_KEY}
 
         feeds = {
-            "pm25": round(pm_data.mc_2p5, 1),
+            "pm1_0": round(pm_data.mc_1p0, 1),
+            "pm2_5": round(pm_data.mc_2p5, 1),
+            "pm4_0": round(pm_data.mc_4p0, 1),
             "pm10": round(pm_data.mc_10p0, 1),
-            "temperature": round(temp, 1),
+            "temp": round(temp, 1),
             "humidity": round(humidity, 1),
         }
 
