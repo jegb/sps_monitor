@@ -349,6 +349,7 @@ configure_hostname() {
 
     HOSTNAME="sps-station"
     CURRENT_HOSTNAME=$(hostname)
+    HOSTNAME_CHANGED=false
 
     if [ "$CURRENT_HOSTNAME" = "$HOSTNAME" ]; then
         success "Hostname already set to $HOSTNAME"
@@ -363,6 +364,7 @@ configure_hostname() {
             hostnamectl set-hostname "$HOSTNAME" 2>&1 | tee -a "$LOG_FILE" > /dev/null
         fi
         success "Hostname set to $HOSTNAME"
+        HOSTNAME_CHANGED=true
     fi
 
     # Update /etc/hosts to resolve hostname locally (fixes sudo warnings)
@@ -387,7 +389,9 @@ configure_hostname() {
     fi
 
     success "Access dashboard at: http://$HOSTNAME.local:5000"
-    warn "Note: Reboot may be required for hostname change to take full effect"
+    if [ "$HOSTNAME_CHANGED" = true ]; then
+        warn "Note: Reboot may be required for hostname change to take full effect"
+    fi
 }
 
 setup_maintenance_cron() {
