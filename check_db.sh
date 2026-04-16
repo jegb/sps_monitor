@@ -16,6 +16,7 @@ echo ""
 
 echo "--- Schema ---"
 sqlite3 "$DB_FILE" ".schema sps30_data"
+sqlite3 "$DB_FILE" ".schema sps30_daily_averages"
 echo ""
 
 echo "--- Row Count ---"
@@ -46,6 +47,21 @@ sqlite3 "$DB_FILE" -header -column "SELECT
     MIN(temp) as min_temp, MAX(temp) as max_temp,
     MIN(humidity) as min_hum, MAX(humidity) as max_hum
 FROM sps30_data;"
+echo ""
+
+echo "--- Latest 5 Daily Aggregate Rows ---"
+sqlite3 "$DB_FILE" -header -column "SELECT
+    day,
+    sample_count,
+    ROUND(pm1_avg, 2) as pm1_avg,
+    ROUND(pm25_avg, 2) as pm25_avg,
+    ROUND(pm4_avg, 2) as pm4_avg,
+    ROUND(pm10_avg, 2) as pm10_avg,
+    ROUND(temp_avg, 2) as temp_avg,
+    ROUND(humidity_avg, 2) as humidity_avg
+FROM sps30_daily_averages
+ORDER BY day DESC
+LIMIT 5;"
 echo ""
 
 # Optional: dump to CSV

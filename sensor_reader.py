@@ -5,6 +5,7 @@ import sqlite3
 import paho.mqtt.publish as publish
 import random
 from board_detect import init_board
+from db_metrics import build_mqtt_derived_metrics, ensure_schema, refresh_daily_averages
 
 # Initialize board BEFORE any adafruit imports
 board_module, board_name = init_board()
@@ -94,7 +95,7 @@ def store_to_db(pm_data, temp, humidity, particle_count=None, particle_size=None
     conn.commit()
     conn.close()
 
-def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=None):
+def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=None, derived_metrics=None):
     payload = {
         "pm_1_0": round(pm_data.mc_1p0, 1),
         "pm_2_5": round(pm_data.mc_2p5, 1),
@@ -106,6 +107,8 @@ def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=
     if particle_count is not None and particle_size is not None:
         payload["ppd42_particle_count"] = round(particle_count, 2)
         payload["ppd42_particle_size"] = particle_size
+    if derived_metrics:
+        payload.update(derived_metrics)
     message = json.dumps(payload)
     publish.single(MQTT_TOPIC, message, hostname=MQTT_BROKER)
     logging.debug(f"Published MQTT payload to {MQTT_BROKER}/{MQTT_TOPIC}: {message}")
@@ -147,6 +150,9 @@ def push_to_adafruit_io(pm_data, temp, humidity):
 
 def main():
     import paho.mqtt.client as mqtt
+
+    ensure_schema(DB_FILE)
+    refresh_daily_averages(DB_FILE, days=30)
 
     def on_control(client, userdata, msg):
         global logging_enabled
@@ -207,9 +213,18 @@ def main():
 
         if logging_enabled and pm_data:
             store_to_db(pm_data, temp, humidity, particle_count, particle_size)
+            refresh_daily_averages(DB_FILE, days=2)
+            derived_metrics = build_mqtt_derived_metrics(DB_FILE)
             if client:
                 try:
-                    publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
+                    publish_to_mqtt(
+                        pm_data,
+                        temp,
+                        humidity,
+                        particle_count,
+                        particle_size,
+                        derived_metrics=derived_metrics,
+                    )
                 except Exception as e:
                     logging.warning(f"Failed to publish to MQTT: {e}")
             try:

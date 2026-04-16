@@ -9,6 +9,8 @@ import logging
 from datetime import datetime, timedelta
 import os
 
+from db_metrics import ensure_schema, refresh_daily_averages
+
 DB_FILE = "sps30_data.db"
 RETENTION_DAYS = 90  # Keep 3 months of data
 
@@ -27,6 +29,7 @@ def get_db_size():
 def maintain_db():
     """Delete old records and reclaim disk space."""
     try:
+        ensure_schema(DB_FILE)
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
 
@@ -40,11 +43,18 @@ def maintain_db():
         c.execute("DELETE FROM sps30_data WHERE timestamp < ?", (cutoff,))
         deleted_count = c.rowcount
 
-        # Reclaim disk space
-        c.execute("VACUUM")
         conn.commit()
+        conn.close()
 
-        # Get final stats
+        # Reclaim disk space after the delete transaction is committed
+        conn = sqlite3.connect(DB_FILE)
+        conn.execute("VACUUM")
+        conn.close()
+
+        refresh_daily_averages(DB_FILE, days=RETENTION_DAYS)
+
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM sps30_data")
         final_count = c.fetchone()[0]
         size_after = get_db_size()

@@ -107,6 +107,8 @@ install_system_dependencies() {
         "build-essential"
         "git"
         "libgpiod3"
+        "mosquitto"
+        "mosquitto-clients"
     )
 
     for pkg in "${PACKAGES[@]}"; do
@@ -118,6 +120,33 @@ install_system_dependencies() {
             success "$pkg installed"
         fi
     done
+}
+
+configure_local_mqtt_broker() {
+    section "CONFIGURING LOCAL MQTT BROKER"
+
+    if grep -q "MQTT_ENABLED = True" "$SCRIPT_DIR/config.py" 2>/dev/null; then
+        log "MQTT publishing is enabled in config.py"
+    else
+        warn "MQTT publishing is disabled in config.py; broker install will remain available for later use"
+    fi
+
+    if command -v systemctl &> /dev/null; then
+        log "Enabling and starting mosquitto service..."
+        sudo systemctl enable mosquitto 2>&1 | tee -a "$LOG_FILE" > /dev/null || true
+        sudo systemctl start mosquitto 2>&1 | tee -a "$LOG_FILE" > /dev/null || true
+
+        if sudo systemctl is-active mosquitto &>/dev/null; then
+            success "Mosquitto broker is active"
+        else
+            warn "Mosquitto did not report active status. Check: sudo systemctl status mosquitto"
+        fi
+    else
+        warn "systemctl not available; start mosquitto manually if you need local MQTT publishing"
+    fi
+
+    log "Local MQTT check: sudo ss -ltnp | grep ':1883'"
+    warn "Remote MQTT subscribers need an explicit mosquitto listener config and a matching UFW rule for TCP/1883"
 }
 
 create_venv() {
@@ -248,12 +277,18 @@ init_database() {
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             log "Keeping existing database"
+            log "Ensuring derived aggregate tables are present..."
+            if python3 "$SCRIPT_DIR/migrate_daily_metrics.py" --db "$SCRIPT_DIR/sps30_data.db" 2>&1 | tee -a "$LOG_FILE"; then
+                success "Existing database migrated for daily/rolling aggregate metrics"
+            else
+                error "Failed to migrate existing database"
+            fi
             return
         fi
     fi
 
     log "Initializing database..."
-    if python3 "$SCRIPT_DIR/init_sps30_db.py" 2>&1 | tee -a "$LOG_FILE"; then
+    if python3 "$SCRIPT_DIR/init_sps30_db.py" --refresh-daily 2>&1 | tee -a "$LOG_FILE"; then
         success "Database initialized"
     else
         error "Failed to initialize database"
@@ -464,8 +499,16 @@ setup_firewall() {
     log "Allowing dashboard access from local network (HTTPS)..."
     sudo ufw allow from "$NETWORK" to any port 5443 2>&1 | tee -a "$LOG_FILE" > /dev/null
 
+    if grep -q "MQTT_ENABLED = True" "$SCRIPT_DIR/config.py" 2>/dev/null; then
+        log "MQTT publishing enabled; allowing broker access from local network (TCP/1883)..."
+        sudo ufw allow from "$NETWORK" to any port 1883 proto tcp 2>&1 | tee -a "$LOG_FILE" > /dev/null
+    fi
+
     success "Firewall configured"
     log "Rules: SSH + HTTP/HTTPS from $NETWORK only"
+    if grep -q "MQTT_ENABLED = True" "$SCRIPT_DIR/config.py" 2>/dev/null; then
+        log "MQTT rule: TCP/1883 from $NETWORK"
+    fi
 }
 
 generate_ssl_certificate() {
@@ -529,6 +572,11 @@ show_status() {
     echo "📋 Data Collection:"
     echo "   $(sudo systemctl is-active sps30_reader.service 2>/dev/null && echo '✓ Active' || echo '⚠ Check logs')"
     echo ""
+    echo "📡 MQTT Broker:"
+    echo "   Service:              $(sudo systemctl is-active mosquitto 2>/dev/null && echo '✓ Active' || echo '⚠ Check mosquitto')"
+    echo "   Local check:          sudo ss -ltnp | grep ':1883'"
+    echo "   Remote subscribers:   Configure mosquitto listener + UFW for TCP/1883"
+    echo ""
     echo "🔒 Security:"
     echo "   Firewall (UFW):      $(sudo ufw status | head -1)"
     echo "   Dashboard (local):   127.0.0.1:5443 (HTTPS only)"
@@ -573,6 +621,7 @@ EOF
     install_system_dependencies
     create_venv
     install_python_dependencies
+    configure_local_mqtt_broker
     run_hardware_tests
     init_database
     setup_firewall

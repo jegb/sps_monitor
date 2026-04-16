@@ -17,6 +17,7 @@ import json
 import argparse
 import shutil
 from flask import Flask, jsonify, render_template, request
+from db_metrics import ensure_schema, get_current_day_average, get_daily_averages, get_rolling_averages
 
 # ---------------------------------------------------------------------------
 # CONFIG – adjust DB_FILE to match your actual table/column names
@@ -46,28 +47,8 @@ SCHEMA_A = {
 
 def detect_schema(db_path: str) -> dict:
     """Verify sps30_data table exists in the database."""
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = {r[0] for r in cur.fetchall()}
-    conn.close()
-
-    if SCHEMA_A["table"] in tables:
-        return SCHEMA_A
-    else:
-        # Create the table if it doesn't exist
-        print(f"⚠️  Table '{SCHEMA_A['table']}' not found. Creating it.")
-        conn = sqlite3.connect(db_path)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS sps30_data (
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                pm1 REAL, pm25 REAL, pm4 REAL, pm10 REAL,
-                temp REAL, humidity REAL
-            );
-        """)
-        conn.commit()
-        conn.close()
-        return SCHEMA_A
+    ensure_schema(db_path)
+    return SCHEMA_A
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +143,33 @@ def api_history():
         data.append(entry)
 
     return jsonify(data)
+
+
+@app.route("/api/daily-averages")
+def api_daily_averages():
+    """Return materialized daily averages for the latest N days."""
+    try:
+        days = max(1, min(90, int(request.args.get("days", "10"))))
+    except ValueError:
+        days = 10
+    return jsonify(get_daily_averages(DB_FILE, days=days))
+
+
+@app.route("/api/summary")
+def api_summary():
+    """Return rolling 24h and latest daily aggregate summaries."""
+    rolling_hours = request.args.get("hours", "24")
+    try:
+        hours = max(1, min(168, int(rolling_hours)))
+    except ValueError:
+        hours = 24
+
+    return jsonify(
+        {
+            "rolling": get_rolling_averages(DB_FILE, hours=hours),
+            "daily": get_current_day_average(DB_FILE),
+        }
+    )
 
 
 @app.route("/api/system-status")

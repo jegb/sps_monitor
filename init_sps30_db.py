@@ -1,30 +1,17 @@
-import sqlite3
 import argparse
 from datetime import datetime, timedelta
+
+from db_metrics import ensure_schema, refresh_daily_averages
 
 DB_PATH = "sps30_data.db"
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS sps30_data (
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        pm1 REAL,
-        pm25 REAL,
-        pm4 REAL,
-        pm10 REAL,
-        temp REAL,
-        humidity REAL,
-        particle_count REAL,
-        particle_size REAL
-    );
-    """)
-    conn.commit()
-    conn.close()
-    print("✅ Database initialized.")
+    ensure_schema(DB_PATH)
+    print("✅ Database initialized (raw + daily aggregate tables).")
 
 def rotate_data(retention_period):
+    import sqlite3
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
@@ -43,14 +30,23 @@ def rotate_data(retention_period):
     c.execute("DELETE FROM sps30_data WHERE timestamp < ?", (cutoff_str,))
     conn.commit()
     conn.close()
+    refresh_daily_averages(DB_PATH)
     print(f"🧹 Data older than {cutoff_str} has been deleted.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Initialize or rotate SPS30 SQLite DB.")
     parser.add_argument("--rotate", choices=["weekly", "3months", "6months"], help="Data retention period")
+    parser.add_argument(
+        "--refresh-daily",
+        action="store_true",
+        help="Backfill the materialized daily averages table after initialization",
+    )
     args = parser.parse_args()
 
     init_db()
+    if args.refresh_daily:
+        row_count = refresh_daily_averages(DB_PATH)
+        print(f"📈 Refreshed {row_count} daily aggregate row(s).")
 
     if args.rotate:
         rotate_data(args.rotate)
