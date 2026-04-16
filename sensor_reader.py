@@ -1,3 +1,4 @@
+import json
 import time
 import logging
 import sqlite3
@@ -105,7 +106,9 @@ def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=
     if particle_count is not None and particle_size is not None:
         payload["ppd42_particle_count"] = round(particle_count, 2)
         payload["ppd42_particle_size"] = particle_size
-    publish.single(MQTT_TOPIC, str(payload), hostname=MQTT_BROKER)
+    message = json.dumps(payload)
+    publish.single(MQTT_TOPIC, message, hostname=MQTT_BROKER)
+    logging.debug(f"Published MQTT payload to {MQTT_BROKER}/{MQTT_TOPIC}: {message}")
 
 def push_to_adafruit_io(pm_data, temp, humidity):
     """Push sensor data to Adafruit IO cloud."""
@@ -114,7 +117,6 @@ def push_to_adafruit_io(pm_data, temp, humidity):
 
     try:
         import urllib.request
-        import json
 
         base_url = f"https://io.adafruit.com/api/v2/{ADAFRUIT_IO_USERNAME}/feeds"
         headers = {"X-AIO-Key": ADAFRUIT_IO_KEY}
@@ -209,7 +211,7 @@ def main():
                 try:
                     publish_to_mqtt(pm_data, temp, humidity, particle_count, particle_size)
                 except Exception as e:
-                    logging.debug(f"Failed to publish to MQTT: {e}")
+                    logging.warning(f"Failed to publish to MQTT: {e}")
             try:
                 push_to_adafruit_io(pm_data, temp, humidity)
             except Exception as e:
