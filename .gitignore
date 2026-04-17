@@ -18,6 +18,8 @@ __pycache__/
 
 # Credentials and local configuration (NEVER commit)
 config.py
+pizerow/config.py
+sps_pyb/flash/config.py
 
 # SSL certificates (local, self-signed)
 cert.pem
@@ -25,3 +27,8 @@ key.pem
 
 # Test files
 test_debug.py
+
+# Thin-node local artifacts
+pizerow/.venv/
+pizerow/data/
+pizerow/setup.log

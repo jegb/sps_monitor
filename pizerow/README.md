@@ -50,6 +50,24 @@ python3 -m pip install -r pizerow/requirements.txt
 
 The `pizerow` target uses `smbus2` for both sensors and `paho-mqtt` for publishing. It does not require Blinka.
 
+## Quick Setup
+
+On a Raspberry Pi Zero / Zero 2W, the fastest path is:
+
+```sh
+chmod +x pizerow/setup.sh
+./pizerow/setup.sh
+```
+
+That script:
+
+- installs the minimal apt packages for the thin node
+- creates `pizerow/.venv`
+- installs `pizerow/requirements.txt`
+- creates `pizerow/config.py` if missing
+- creates `pizerow/data/history` and `pizerow/data/queue`
+- runs the host-side unit tests
+
 ## Configuration
 
 Create a local config file:
