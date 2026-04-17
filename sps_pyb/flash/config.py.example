@@ -1,0 +1,29 @@
+# Wi-Fi configuration
+WIFI_SSID = ""
+WIFI_PASSWORD = ""
+
+# MQTT configuration
+MQTT_ENABLED = True
+MQTT_HOST = "192.168.1.10"
+MQTT_PORT = 1883
+MQTT_TOPIC = "airquality/sensor"
+MQTT_CLIENT_ID = "sps-pybd-sf6w"
+
+# Sampling cadence
+PUBLISH_INTERVAL_S = 60
+
+# Shared I2C bus for SPS30 + SHT3x
+I2C_BUS = "X"
+I2C_FREQ = 100000
+
+# Sensor addresses
+SPS30_ADDR = 0x69
+SHT3X_ENABLED = True
+SHT3X_ADDR = 0x44
+
+# Time sync
+NTP_ENABLED = True
+NTP_HOST = "pool.ntp.org"
+
+# SD-backed history storage
+SD_HISTORY_ENABLED = True
