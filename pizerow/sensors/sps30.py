@@ -95,15 +95,12 @@ class SPS30Sensor:
             raise RuntimeError("smbus2 is not installed")
 
     def _write_command(self, bus, command, data_words=None):
-        bus.write_i2c_block_data(
-            self.address,
-            (command >> 8) & 0xFF,
-            list(build_command(command, data_words)[1:]),
-        )
+        bus.i2c_rdwr(i2c_msg.write(self.address, build_command(command, data_words)))
 
     def _read_words(self, bus, num_words):
-        raw_data = bus.read_i2c_block_data(self.address, 0x00, num_words * 3)
-        return parse_words(raw_data)
+        read_msg = i2c_msg.read(self.address, num_words * 3)
+        bus.i2c_rdwr(read_msg)
+        return parse_words(bytes(read_msg))
 
     def probe(self):
         self._ensure_smbus()
