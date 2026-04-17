@@ -75,6 +75,7 @@ install_system_packages() {
         python3-venv
         i2c-tools
         git
+        mosquitto-clients
     )
 
     log "Installing: ${packages[*]}"

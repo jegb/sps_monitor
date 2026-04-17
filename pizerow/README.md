@@ -62,6 +62,7 @@ chmod +x pizerow/setup.sh
 That script:
 
 - installs the minimal apt packages for the thin node
+- installs `mosquitto-clients` for MQTT diagnostics with `mosquitto_pub` and `mosquitto_sub`
 - creates `pizerow/.venv`
 - installs `pizerow/requirements.txt`
 - creates `pizerow/config.py` if missing
