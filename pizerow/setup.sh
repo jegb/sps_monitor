@@ -135,6 +135,8 @@ print_next_steps() {
     echo "3. Run the node:" | tee -a "$LOG_FILE"
     echo "   cd $REPO_ROOT" | tee -a "$LOG_FILE"
     echo "   $VENV_DIR/bin/python -m pizerow.main" | tee -a "$LOG_FILE"
+    echo "4. Optional boot service:" | tee -a "$LOG_FILE"
+    echo "   sudo $SCRIPT_DIR/install_service.sh" | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"
     echo "Setup log: $LOG_FILE" | tee -a "$LOG_FILE"
 }

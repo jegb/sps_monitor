@@ -99,6 +99,26 @@ Enable I2C on the Pi if it is not already enabled, then start the node:
 python3 -m pizerow.main
 ```
 
+## Auto-Start On Boot
+
+Install the `systemd` unit from this repo:
+
+```sh
+chmod +x pizerow/install_service.sh
+sudo ./pizerow/install_service.sh
+```
+
+That creates `/etc/systemd/system/pizerow.service` with the correct absolute paths for the current clone, enables it, and starts it immediately.
+
+Useful commands:
+
+```sh
+systemctl status pizerow
+sudo journalctl -u pizerow -f
+sudo systemctl restart pizerow
+sudo systemctl disable --now pizerow
+```
+
 The runtime behavior is:
 
 1. Replay any queued MQTT records from the local queue.
