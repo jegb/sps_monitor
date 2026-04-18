@@ -34,3 +34,7 @@ test_debug.py
 pizerow/.venv/
 pizerow/data/
 pizerow/setup.log
+
+# sps_pyb calibration artifacts
+sps_pyb/calibration_*.csv
+sps_pyb/calibration_*.json

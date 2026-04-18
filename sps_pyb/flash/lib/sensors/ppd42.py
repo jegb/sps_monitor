@@ -4,12 +4,19 @@ except ImportError:
     import utime as time
 
 try:
+    import math
+except ImportError:
+    import umath as math
+
+try:
     from machine import Pin
 except ImportError:
     Pin = None
 
 DEFAULT_PARTICLE_SIZE = 2.5
 DEFAULT_SAMPLE_DURATION = 30
+DEFAULT_PARTICLE_DENSITY_KG_M3 = 1650.0
+PCS_PER_001CF_TO_PER_M3 = 3531.466672148859
 
 
 def _ticks_us():
@@ -40,6 +47,23 @@ def concentration_from_low_occupancy(low_occupancy_us, sample_duration_s):
 
     ratio = float(low_occupancy_us) / (float(sample_duration_s) * 1000000.0)
     return round(ratio * 1000.0, 4)
+
+
+def estimate_mass_concentration_ugm3(
+    particle_count,
+    particle_size_um=DEFAULT_PARTICLE_SIZE,
+    density_kg_m3=DEFAULT_PARTICLE_DENSITY_KG_M3,
+    calibration_factor=1.0,
+):
+    if particle_count is None:
+        return None
+
+    diameter_m = float(particle_size_um) * 1e-6
+    radius_m = diameter_m / 2.0
+    particle_volume_m3 = (4.0 / 3.0) * math.pi * (radius_m ** 3)
+    particle_mass_ug = float(density_kg_m3) * particle_volume_m3 * 1e9
+    count_per_m3 = float(particle_count) * PCS_PER_001CF_TO_PER_M3
+    return round(count_per_m3 * particle_mass_ug * float(calibration_factor), 4)
 
 
 class PPD42Sensor:

@@ -58,6 +58,8 @@ If `PPD42` is enabled, the payload also includes:
 
 For `rpi_watch` compatibility, `PPD42` can also synthesize `pm_1_0`, `pm_2_5`, `pm_4_0`, and `pm_10_0` using a sample-and-hold ring. In that mode, each new `PPD42` sample updates one PM field and the other three keep their previous values until their turn.
 
+If you need a stricter `rpi_watch`-compatible MQTT contract, `PPD42` can also estimate a single `pm_2_5` value from `particle_count` and omit non-contract fields from the live MQTT payload.
+
 ## Environmental Sensor Options
 
 `sps_pyb` now supports four temperature/humidity sensor choices:
@@ -151,6 +153,8 @@ PPD42_PIN = "X2"
 PPD42_PARTICLE_SIZE = 2.5
 PPD42_SAMPLE_DURATION = 30
 PPD42_COMPAT_MODE = "none"
+PPD42_PARTICLE_DENSITY_KG_M3 = 1650.0
+PPD42_MASS_CALIBRATION_FACTOR = 1.0
 ```
 
 When enabled, the runtime spends `PPD42_SAMPLE_DURATION` seconds accumulating low-pulse occupancy during each loop.
@@ -176,6 +180,175 @@ That mode updates the synthetic PM fields in this sequence:
 Each field holds its most recent assigned `PPD42` sample until the next four-step cycle reaches it again.
 
 This is a compatibility shim only. It does not turn the `PPD42` into a true simultaneous PM1.0/PM2.5/PM4.0/PM10 sensor.
+
+### Strict `pm_2_5` Contract Mode
+
+If you want MQTT output that stays within the original `rpi_watch` contract, map `PPD42` to an estimated `pm_2_5` value and strip non-contract fields from the live payload:
+
+```python
+PPD42_ENABLED = True
+PPD42_SAMPLE_DURATION = 30
+PUBLISH_INTERVAL_S = 30
+PPD42_COMPAT_MODE = "pm25_mass_estimate"
+PPD42_PARTICLE_DENSITY_KG_M3 = 1650.0
+PPD42_MASS_CALIBRATION_FACTOR = 1.0
+MQTT_STRICT_CONTRACT = True
+```
+
+In that mode the MQTT payload contains only contract fields, and `pm_2_5` is estimated from `PPD42` particle count using particle size, density, and a calibration factor. This is still an estimate and should be calibrated against a reference sensor if you need absolute values.
+
+## Direct REPL Reads
+
+Open a REPL on the board:
+
+```sh
+mpremote connect auto repl
+```
+
+Then add the board library path once:
+
+```python
+import sys, config
+if "/flash/lib" not in sys.path:
+    sys.path.append("/flash/lib")
+```
+
+### Read `AHT10` directly
+
+```python
+from machine import I2C
+from sensors.aht10 import AHT10Sensor
+
+i2c = I2C(config.I2C_BUS, freq=config.I2C_FREQ)
+sensor = AHT10Sensor(i2c, address=config.AHT10_ADDR)
+print(sensor.read_temperature_humidity())
+```
+
+Expected shape:
+
+```python
+(25.36, 44.28)
+```
+
+### Read `PPD42` directly
+
+```python
+from sensors.ppd42 import PPD42Sensor
+
+sensor = PPD42Sensor(
+    pin=config.PPD42_PIN,
+    particle_size=config.PPD42_PARTICLE_SIZE,
+)
+print(sensor.get_reading(sample_duration=config.PPD42_SAMPLE_DURATION))
+```
+
+Expected shape:
+
+```python
+{
+    "particle_count": 97.2072,
+    "particle_size": 2.5,
+    "low_occupancy_us": 486036,
+    "unit": "pcs/0.01cf",
+}
+```
+
+### Build the exact payload that would go to MQTT
+
+This inspects the runtime output without actually publishing:
+
+```python
+from app.runtime import StationRuntime
+from app.payload import dumps_json
+
+runtime = StationRuntime(config)
+record = runtime._capture_record()
+payload = runtime._build_publish_payload(record)
+
+print(record)
+print(payload)
+print(dumps_json(payload))
+```
+
+For an `AHT10`-only node, the payload looks like:
+
+```python
+{
+    "pm_1_0": None,
+    "pm_2_5": None,
+    "pm_4_0": None,
+    "pm_10_0": None,
+    "temp": 25.5754,
+    "humidity": 45.621,
+    "ppd42_particle_count": 97.2072,
+    "ppd42_particle_size": 2.5,
+}
+```
+
+If `MQTT_STRICT_CONTRACT = True` and `PPD42_COMPAT_MODE = "pm25_mass_estimate"`, the MQTT payload instead looks like:
+
+```python
+{
+    "pm_2_5": 0.6867,
+    "temp": 27.4881,
+    "humidity": 44.1042,
+}
+```
+
+If `PPD42_COMPAT_MODE = "hold4_pm_fields"`, repeat the capture a few times to see the sample-and-hold PM fields fill in:
+
+```python
+from app.runtime import StationRuntime
+from app.payload import build_live_payload
+
+runtime = StationRuntime(config)
+for _ in range(4):
+    record = runtime._capture_record()
+    print(build_live_payload(record))
+```
+
+## Calibration Ingest
+
+If you want to calibrate `PPD42` against an `SPS30` reference later, keep the main topic strict and publish the raw `PPD42` record on a second topic:
+
+```python
+MQTT_TOPIC = "airquality/sensor"
+MQTT_STRICT_CONTRACT = True
+MQTT_CALIBRATION_TOPIC = "airquality/sensor_ppd42_raw"
+
+PPD42_COMPAT_MODE = "pm25_mass_estimate"
+PPD42_SAMPLE_DURATION = 30
+PUBLISH_INTERVAL_S = 30
+```
+
+In that setup:
+
+- `MQTT_TOPIC` keeps the `rpi_watch` contract
+- `MQTT_CALIBRATION_TOPIC` carries the internal record, including `ppd42_particle_count`
+
+Then capture paired rows from MQTT on the host:
+
+```sh
+python3 -m sps_pyb.tools.ppd42_calibration capture \
+  --broker-host 192.168.0.67 \
+  --sample-topic airquality/sensor_ppd42_raw \
+  --reference-topic airquality/sps30_reference \
+  --output sps_pyb/calibration_ppd42.csv \
+  --max-skew-s 45 \
+  --max-pairs 200
+```
+
+That CSV can then be fit to linear models:
+
+```sh
+python3 -m sps_pyb.tools.ppd42_calibration fit \
+  --input sps_pyb/calibration_ppd42.csv
+```
+
+The fit command prints:
+
+- JSON summary with `a`, `b`, `r2`, and sample count for each PM field
+- a `PPD42_LINEAR_PM_CALIBRATION` config snippet you can reuse later
 
 ### Temp-Only Bench Test
 
@@ -242,6 +415,7 @@ WIFI_PASSWORD = "your-password"
 MQTT_HOST = "192.168.0.67"
 MQTT_PORT = 1883
 MQTT_TOPIC = "airquality/sensor"
+MQTT_CALIBRATION_TOPIC = ""
 MOCK_PUBLISH_INTERVAL_S = 5
 MOCK_PUBLISH_COUNT = 0
 ```

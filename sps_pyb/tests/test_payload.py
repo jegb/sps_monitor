@@ -1,6 +1,12 @@
 import unittest
 
-from sps_pyb.flash.lib.app.payload import PM_FIELDS, PAYLOAD_FIELDS, build_live_payload, build_sensor_record
+from sps_pyb.flash.lib.app.payload import (
+    PM_FIELDS,
+    PAYLOAD_FIELDS,
+    build_live_payload,
+    build_mqtt_payload,
+    build_sensor_record,
+)
 
 
 class PayloadTests(unittest.TestCase):
@@ -74,6 +80,29 @@ class PayloadTests(unittest.TestCase):
         )
 
         self.assertEqual(tuple(record[field_name] for field_name in PM_FIELDS), (11.1111, 22.2222, 33.3333, 44.4444))
+
+    def test_build_mqtt_payload_drops_null_and_optional_fields_for_strict_contract(self):
+        record = build_sensor_record(
+            "2026-04-17T12:00:00Z",
+            None,
+            25.14,
+            59.64,
+            pm_fields={"pm_2_5": 12.34567},
+            ppd42_particle_count=12.34567,
+            ppd42_particle_size=2.5,
+        )
+
+        payload = build_mqtt_payload(
+            record,
+            include_optional_fields=False,
+            drop_null_fields=True,
+        )
+
+        self.assertEqual(payload, {
+            "pm_2_5": 12.3457,
+            "temp": 25.14,
+            "humidity": 59.64,
+        })
 
 
 if __name__ == "__main__":

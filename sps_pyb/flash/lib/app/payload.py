@@ -61,5 +61,28 @@ def build_live_payload(record):
     return payload
 
 
+def build_mqtt_payload(
+    record,
+    *,
+    include_optional_fields=True,
+    drop_null_fields=False,
+):
+    payload = {}
+
+    for field in PAYLOAD_FIELDS:
+        value = record.get(field)
+        if drop_null_fields and value is None:
+            continue
+        payload[field] = value
+
+    if include_optional_fields:
+        for field in OPTIONAL_PAYLOAD_FIELDS:
+            value = record.get(field)
+            if value is not None:
+                payload[field] = value
+
+    return payload
+
+
 def dumps_json(value):
     return json.dumps(value)

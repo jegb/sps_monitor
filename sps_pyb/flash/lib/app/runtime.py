@@ -5,25 +5,25 @@ except ImportError:
 
 try:
     from .mqtt_client import MQTTPublisher
-    from .payload import PM_FIELDS, build_live_payload, build_sensor_record
+    from .payload import PM_FIELDS, build_mqtt_payload, build_sensor_record
     from .storage import StorageManager
     from .time_sync import TimeSync
     from .wifi import WiFiManager
     from ..sensors.aht10 import AHT10Sensor
     from ..sensors.dht11 import DHT11Sensor
-    from ..sensors.ppd42 import PPD42Sensor
+    from ..sensors.ppd42 import PPD42Sensor, estimate_mass_concentration_ugm3
     from ..sensors.sht2x import SHT2XSensor
     from ..sensors.sht3x import SHT3XSensor
     from ..sensors.sps30 import SPS30Sensor
 except (ImportError, ValueError):
     from app.mqtt_client import MQTTPublisher
-    from app.payload import PM_FIELDS, build_live_payload, build_sensor_record
+    from app.payload import PM_FIELDS, build_mqtt_payload, build_sensor_record
     from app.storage import StorageManager
     from app.time_sync import TimeSync
     from app.wifi import WiFiManager
     from sensors.aht10 import AHT10Sensor
     from sensors.dht11 import DHT11Sensor
-    from sensors.ppd42 import PPD42Sensor
+    from sensors.ppd42 import PPD42Sensor, estimate_mass_concentration_ugm3
     from sensors.sht2x import SHT2XSensor
     from sensors.sht3x import SHT3XSensor
     from sensors.sps30 import SPS30Sensor
@@ -52,13 +52,39 @@ class PPD42CompatBuffer:
         return dict(self.values), field_name
 
 
+class PPD42SingleFieldMapper:
+    def __init__(
+        self,
+        field_name,
+        *,
+        particle_size_um,
+        density_kg_m3,
+        calibration_factor,
+    ):
+        self.field_name = field_name
+        self.particle_size_um = float(particle_size_um)
+        self.density_kg_m3 = float(density_kg_m3)
+        self.calibration_factor = float(calibration_factor)
+
+    def update(self, particle_count):
+        value = estimate_mass_concentration_ugm3(
+            particle_count,
+            particle_size_um=self.particle_size_um,
+            density_kg_m3=self.density_kg_m3,
+            calibration_factor=self.calibration_factor,
+        )
+        return {self.field_name: value}, self.field_name
+
+
 class StationRuntime:
     def __init__(self, config):
         self.config = config
         self.publish_interval_s = int(getattr(config, "PUBLISH_INTERVAL_S", 60))
         self.mqtt_enabled = bool(getattr(config, "MQTT_ENABLED", True))
         self.mqtt_topic = getattr(config, "MQTT_TOPIC", "airquality/sensor")
+        self.mqtt_calibration_topic = str(getattr(config, "MQTT_CALIBRATION_TOPIC", "")).strip() or None
         self.ppd42_sample_duration_s = int(getattr(config, "PPD42_SAMPLE_DURATION", 30))
+        self.mqtt_strict_contract = bool(getattr(config, "MQTT_STRICT_CONTRACT", False))
 
         self.wifi = WiFiManager(
             getattr(config, "WIFI_SSID", ""),
@@ -198,20 +224,39 @@ class StationRuntime:
         if compat_mode in ("", "none", "off"):
             return None
 
-        if compat_mode != "hold4_pm_fields":
-            raise ValueError("Unsupported PPD42_COMPAT_MODE: %s" % compat_mode)
-
         if self.sps30 is not None:
             print("runtime: ignoring PPD42 compat mode because SPS30 is enabled")
             return None
 
-        if self.publish_interval_s != self.ppd42_sample_duration_s:
-            print(
-                "runtime: PPD42 compat mode works best when "
-                "PUBLISH_INTERVAL_S == PPD42_SAMPLE_DURATION"
+        if compat_mode == "hold4_pm_fields":
+            if self.publish_interval_s != self.ppd42_sample_duration_s:
+                print(
+                    "runtime: PPD42 compat mode works best when "
+                    "PUBLISH_INTERVAL_S == PPD42_SAMPLE_DURATION"
+                )
+            return PPD42CompatBuffer()
+
+        if compat_mode == "pm25_mass_estimate":
+            return PPD42SingleFieldMapper(
+                "pm_2_5",
+                particle_size_um=float(getattr(self.config, "PPD42_PARTICLE_SIZE", 2.5)),
+                density_kg_m3=float(getattr(self.config, "PPD42_PARTICLE_DENSITY_KG_M3", 1650.0)),
+                calibration_factor=float(getattr(self.config, "PPD42_MASS_CALIBRATION_FACTOR", 1.0)),
             )
 
-        return PPD42CompatBuffer()
+        raise ValueError("Unsupported PPD42_COMPAT_MODE: %s" % compat_mode)
+
+    def _build_publish_payload(self, record):
+        return build_mqtt_payload(
+            record,
+            include_optional_fields=not self.mqtt_strict_contract,
+            drop_null_fields=self.mqtt_strict_contract,
+        )
+
+    def _publish_record(self, client, record):
+        client.publish(self.mqtt_topic, self._build_publish_payload(record))
+        if self.mqtt_calibration_topic and self.mqtt_calibration_topic != self.mqtt_topic:
+            client.publish(self.mqtt_calibration_topic, record)
 
     def _ensure_mqtt(self):
         if not self.mqtt_enabled or self.mqtt is None:
@@ -242,7 +287,7 @@ class StationRuntime:
         try:
             drained = False
             for _, next_offset, record in self.storage.iter_pending():
-                client.publish(self.mqtt_topic, build_live_payload(record))
+                self._publish_record(client, record)
                 self.storage.mark_queue_offset(next_offset)
                 drained = True
 
@@ -315,7 +360,7 @@ class StationRuntime:
             return record
 
         try:
-            client.publish(self.mqtt_topic, build_live_payload(record))
+            self._publish_record(client, record)
             print("mqtt: published live sample")
         except Exception as exc:
             print("mqtt: publish failed:", exc)
