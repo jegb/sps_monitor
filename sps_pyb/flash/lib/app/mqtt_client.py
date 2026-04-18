@@ -15,7 +15,7 @@ except ImportError:
 
 try:
     from ..umqtt.simple import MQTTClient
-except ImportError:
+except (ImportError, ValueError):
     from umqtt.simple import MQTTClient
 
 

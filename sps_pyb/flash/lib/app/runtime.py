@@ -5,18 +5,26 @@ except ImportError:
 
 try:
     from .mqtt_client import MQTTPublisher
-    from .payload import build_live_payload, build_sensor_record
+    from .payload import PM_FIELDS, build_live_payload, build_sensor_record
     from .storage import StorageManager
     from .time_sync import TimeSync
     from .wifi import WiFiManager
+    from ..sensors.aht10 import AHT10Sensor
+    from ..sensors.dht11 import DHT11Sensor
+    from ..sensors.ppd42 import PPD42Sensor
+    from ..sensors.sht2x import SHT2XSensor
     from ..sensors.sht3x import SHT3XSensor
     from ..sensors.sps30 import SPS30Sensor
-except ImportError:
+except (ImportError, ValueError):
     from app.mqtt_client import MQTTPublisher
-    from app.payload import build_live_payload, build_sensor_record
+    from app.payload import PM_FIELDS, build_live_payload, build_sensor_record
     from app.storage import StorageManager
     from app.time_sync import TimeSync
     from app.wifi import WiFiManager
+    from sensors.aht10 import AHT10Sensor
+    from sensors.dht11 import DHT11Sensor
+    from sensors.ppd42 import PPD42Sensor
+    from sensors.sht2x import SHT2XSensor
     from sensors.sht3x import SHT3XSensor
     from sensors.sps30 import SPS30Sensor
 
@@ -31,12 +39,26 @@ def _sleep_seconds(seconds):
         time.sleep_ms(int(seconds * 1000))
 
 
+class PPD42CompatBuffer:
+    def __init__(self, fields=PM_FIELDS):
+        self.fields = tuple(fields)
+        self.values = {field_name: None for field_name in self.fields}
+        self.index = 0
+
+    def update(self, particle_count):
+        field_name = self.fields[self.index]
+        self.values[field_name] = particle_count
+        self.index = (self.index + 1) % len(self.fields)
+        return dict(self.values), field_name
+
+
 class StationRuntime:
     def __init__(self, config):
         self.config = config
         self.publish_interval_s = int(getattr(config, "PUBLISH_INTERVAL_S", 60))
         self.mqtt_enabled = bool(getattr(config, "MQTT_ENABLED", True))
         self.mqtt_topic = getattr(config, "MQTT_TOPIC", "airquality/sensor")
+        self.ppd42_sample_duration_s = int(getattr(config, "PPD42_SAMPLE_DURATION", 30))
 
         self.wifi = WiFiManager(
             getattr(config, "WIFI_SSID", ""),
@@ -60,22 +82,14 @@ class StationRuntime:
                 client_id=getattr(config, "MQTT_CLIENT_ID", None),
             )
 
-        self.i2c = self._create_i2c()
-        self.sps30 = SPS30Sensor(
-            self.i2c,
-            address=int(getattr(config, "SPS30_ADDR", 0x69)),
-        )
-        if not self.sps30.probe():
-            print("runtime: SPS30 not found at 0x%02X" % self.sps30.address)
+        self.i2c = self._create_i2c() if self._needs_i2c() else None
+        self.sps30 = self._create_sps30()
+        self.env_sensor = self._create_env_sensor()
+        self.ppd42 = self._create_ppd42()
+        self.ppd42_compat = self._create_ppd42_compat()
 
-        self.sht3x = None
-        if bool(getattr(config, "SHT3X_ENABLED", True)):
-            self.sht3x = SHT3XSensor(
-                self.i2c,
-                address=int(getattr(config, "SHT3X_ADDR", 0x44)),
-            )
-            if not self.sht3x.probe():
-                print("runtime: SHT3x not found at 0x%02X" % self.sht3x.address)
+    def _sps30_enabled(self):
+        return bool(getattr(self.config, "SPS30_ENABLED", True))
 
     def _create_i2c(self):
         from machine import I2C
@@ -87,6 +101,117 @@ class StationRuntime:
             return I2C(bus, freq=freq)
         except TypeError:
             return I2C(int(bus), freq=freq)
+
+    def _needs_i2c(self):
+        if self._sps30_enabled():
+            return True
+
+        return self._env_sensor_kind() in ("sht3x", "sht20", "aht10")
+
+    def _create_sps30(self):
+        if not self._sps30_enabled():
+            return None
+
+        sensor = SPS30Sensor(
+            self.i2c,
+            address=int(getattr(self.config, "SPS30_ADDR", 0x69)),
+        )
+        if not sensor.probe():
+            print("runtime: SPS30 not found at 0x%02X" % sensor.address)
+        return sensor
+
+    def _ppd42_enabled(self):
+        return bool(getattr(self.config, "PPD42_ENABLED", False))
+
+    def _env_sensor_kind(self):
+        kind = str(getattr(self.config, "ENV_SENSOR", "")).strip().lower()
+        if kind:
+            return kind
+
+        if bool(getattr(self.config, "SHT3X_ENABLED", True)):
+            return "sht3x"
+        return "none"
+
+    def _create_env_sensor(self):
+        kind = self._env_sensor_kind()
+        if kind in ("", "none", "off"):
+            return None
+
+        if kind == "sht3x":
+            sensor = SHT3XSensor(
+                self.i2c,
+                address=int(getattr(self.config, "SHT3X_ADDR", 0x44)),
+            )
+            if not sensor.probe():
+                print("runtime: SHT3x not found at 0x%02X" % sensor.address)
+            return sensor
+
+        if kind == "sht20":
+            sensor = SHT2XSensor(
+                self.i2c,
+                address=int(getattr(self.config, "SHT20_ADDR", 0x40)),
+            )
+            if not sensor.probe():
+                print("runtime: SHT20/SHT2x not found at 0x%02X" % sensor.address)
+            return sensor
+
+        if kind == "aht10":
+            sensor = AHT10Sensor(
+                self.i2c,
+                address=int(getattr(self.config, "AHT10_ADDR", 0x38)),
+            )
+            if not sensor.probe():
+                print("runtime: AHT10 not found at 0x%02X" % sensor.address)
+            return sensor
+
+        if kind == "dht11":
+            sensor = DHT11Sensor(
+                pin=getattr(self.config, "DHT11_PIN", "X1"),
+            )
+            if not sensor.probe():
+                print("runtime: DHT11 not found on pin %s" % getattr(self.config, "DHT11_PIN", "X1"))
+            return sensor
+
+        raise ValueError("Unsupported ENV_SENSOR: %s" % kind)
+
+    def _create_ppd42(self):
+        if not self._ppd42_enabled():
+            return None
+
+        try:
+            return PPD42Sensor(
+                pin=getattr(self.config, "PPD42_PIN", "X2"),
+                particle_size=float(getattr(self.config, "PPD42_PARTICLE_SIZE", 2.5)),
+            )
+        except Exception as exc:
+            print("runtime: PPD42 init failed:", exc)
+            return None
+
+    def _ppd42_compat_mode(self):
+        return str(getattr(self.config, "PPD42_COMPAT_MODE", "none")).strip().lower()
+
+    def _create_ppd42_compat(self):
+        if self.ppd42 is None:
+            return None
+
+        compat_mode = self._ppd42_compat_mode()
+        if compat_mode in ("", "none", "off"):
+            return None
+
+        if compat_mode != "hold4_pm_fields":
+            raise ValueError("Unsupported PPD42_COMPAT_MODE: %s" % compat_mode)
+
+        if self.sps30 is not None:
+            print("runtime: ignoring PPD42 compat mode because SPS30 is enabled")
+            return None
+
+        if self.publish_interval_s != self.ppd42_sample_duration_s:
+            print(
+                "runtime: PPD42 compat mode works best when "
+                "PUBLISH_INTERVAL_S == PPD42_SAMPLE_DURATION"
+            )
+
+        return PPD42CompatBuffer()
 
     def _ensure_mqtt(self):
         if not self.mqtt_enabled or self.mqtt is None:
@@ -129,18 +254,36 @@ class StationRuntime:
             self.mqtt.reset()
 
     def _capture_record(self):
-        pm_data = self.sps30.read_measurement()
+        pm_data = None
+        if self.sps30 is not None:
+            pm_data = self.sps30.read_measurement()
         temp = None
         humidity = None
+        pm_fields = None
+        ppd42_particle_count = None
+        ppd42_particle_size = None
 
-        if self.sht3x is not None:
-            temp, humidity = self.sht3x.read_temperature_humidity()
+        if self.env_sensor is not None:
+            temp, humidity = self.env_sensor.read_temperature_humidity()
+
+        if self.ppd42 is not None:
+            reading = self.ppd42.get_reading(
+                sample_duration=self.ppd42_sample_duration_s
+            )
+            ppd42_particle_count = reading.get("particle_count")
+            ppd42_particle_size = reading.get("particle_size")
+            if self.ppd42_compat is not None:
+                pm_fields, updated_field = self.ppd42_compat.update(ppd42_particle_count)
+                print("runtime: PPD42 compat updated %s" % updated_field)
 
         return build_sensor_record(
             self.time_sync.current_timestamp(),
             pm_data,
             temp,
             humidity,
+            pm_fields=pm_fields,
+            ppd42_particle_count=ppd42_particle_count,
+            ppd42_particle_size=ppd42_particle_size,
         )
 
     def _persist_history(self, record):
@@ -190,10 +333,11 @@ class StationRuntime:
                 self.run_once()
             except Exception as exc:
                 print("runtime: sample loop failed:", exc)
-                try:
-                    self.sps30.stop_measurement()
-                except Exception:
-                    pass
+                if self.sps30 is not None:
+                    try:
+                        self.sps30.stop_measurement()
+                    except Exception:
+                        pass
 
             elapsed = time.time() - start
             remaining = self.publish_interval_s - elapsed

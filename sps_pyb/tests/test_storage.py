@@ -19,13 +19,15 @@ def _record(timestamp_utc, pm_1_0=1.0):
         "pm_10_0": 4.0,
         "temp": 25.0,
         "humidity": 60.0,
+        "ppd42_particle_count": None,
+        "ppd42_particle_size": None,
     }
 
 
 class StorageTests(unittest.TestCase):
     def test_format_history_row_uses_expected_column_order(self):
         row = format_history_row(_record("2026-04-17T00:00:00Z"))
-        self.assertEqual(row, "2026-04-17T00:00:00Z,1.0,2.0,3.0,4.0,25.0,60.0")
+        self.assertEqual(row, "2026-04-17T00:00:00Z,1.0,2.0,3.0,4.0,25.0,60.0,,")
 
     def test_append_history_writes_single_header(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -41,8 +43,8 @@ class StorageTests(unittest.TestCase):
                 lines = handle.read().splitlines()
 
             self.assertEqual(lines[0], HISTORY_HEADER)
-            self.assertEqual(lines[1], "2026-04-17T00:00:00Z,1.0,2.0,3.0,4.0,25.0,60.0")
-            self.assertEqual(lines[2], "2026-04-17T00:01:00Z,1.5,2.0,3.0,4.0,25.0,60.0")
+            self.assertEqual(lines[1], "2026-04-17T00:00:00Z,1.0,2.0,3.0,4.0,25.0,60.0,,")
+            self.assertEqual(lines[2], "2026-04-17T00:01:00Z,1.5,2.0,3.0,4.0,25.0,60.0,,")
 
     def test_queue_checkpoint_and_compaction(self):
         with tempfile.TemporaryDirectory() as tmpdir:

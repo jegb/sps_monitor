@@ -9,11 +9,11 @@ except ImportError:
     import uos as os
 
 try:
-    from .payload import PAYLOAD_FIELDS, dumps_json
+    from .payload import OPTIONAL_PAYLOAD_FIELDS, PAYLOAD_FIELDS, dumps_json
 except ImportError:
-    from app.payload import PAYLOAD_FIELDS, dumps_json
+    from app.payload import OPTIONAL_PAYLOAD_FIELDS, PAYLOAD_FIELDS, dumps_json
 
-HISTORY_FIELDS = ("timestamp_utc",) + PAYLOAD_FIELDS
+HISTORY_FIELDS = ("timestamp_utc",) + PAYLOAD_FIELDS + OPTIONAL_PAYLOAD_FIELDS
 HISTORY_HEADER = ",".join(HISTORY_FIELDS)
 
 

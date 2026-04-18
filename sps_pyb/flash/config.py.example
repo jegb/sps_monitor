@@ -8,18 +8,30 @@ MQTT_HOST = "192.168.1.10"
 MQTT_PORT = 1883
 MQTT_TOPIC = "airquality/sensor"
 MQTT_CLIENT_ID = "sps-pybd-sf6w"
+MOCK_PUBLISH_INTERVAL_S = 5
+MOCK_PUBLISH_COUNT = 0
 
 # Sampling cadence
 PUBLISH_INTERVAL_S = 60
 
-# Shared I2C bus for SPS30 + SHT3x
+# Shared I2C bus for SPS30 + I2C environmental sensors
 I2C_BUS = "X"
 I2C_FREQ = 100000
 
 # Sensor addresses
+SPS30_ENABLED = True
 SPS30_ADDR = 0x69
+PPD42_ENABLED = False
+PPD42_PIN = "X2"
+PPD42_PARTICLE_SIZE = 2.5
+PPD42_SAMPLE_DURATION = 30
+PPD42_COMPAT_MODE = "none"  # "none", "hold4_pm_fields"
+ENV_SENSOR = "sht3x"  # "none", "sht3x", "sht20", "aht10", "dht11"
 SHT3X_ENABLED = True
 SHT3X_ADDR = 0x44
+SHT20_ADDR = 0x40
+AHT10_ADDR = 0x38
+DHT11_PIN = "X1"
 
 # Time sync
 NTP_ENABLED = True

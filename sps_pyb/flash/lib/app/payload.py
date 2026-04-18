@@ -11,31 +11,54 @@ PAYLOAD_FIELDS = (
     "temp",
     "humidity",
 )
+PM_FIELDS = PAYLOAD_FIELDS[:4]
+OPTIONAL_PAYLOAD_FIELDS = (
+    "ppd42_particle_count",
+    "ppd42_particle_size",
+)
 
 
-def _round_value(value, digits=1):
+def _round_value(value, digits=4):
     if value is None:
         return None
     return round(float(value), digits)
 
 
-def build_sensor_record(timestamp_utc, pm_data, temp, humidity):
-    if pm_data is None:
-        raise ValueError("pm_data is required")
-
-    return {
+def build_sensor_record(
+    timestamp_utc,
+    pm_data,
+    temp,
+    humidity,
+    pm_fields=None,
+    ppd42_particle_count=None,
+    ppd42_particle_size=None,
+):
+    record = {
         "timestamp_utc": timestamp_utc,
-        "pm_1_0": _round_value(pm_data["mc_1p0"]),
-        "pm_2_5": _round_value(pm_data["mc_2p5"]),
-        "pm_4_0": _round_value(pm_data["mc_4p0"]),
-        "pm_10_0": _round_value(pm_data["mc_10p0"]),
+        "pm_1_0": _round_value(None if pm_data is None else pm_data["mc_1p0"]),
+        "pm_2_5": _round_value(None if pm_data is None else pm_data["mc_2p5"]),
+        "pm_4_0": _round_value(None if pm_data is None else pm_data["mc_4p0"]),
+        "pm_10_0": _round_value(None if pm_data is None else pm_data["mc_10p0"]),
         "temp": _round_value(temp),
         "humidity": _round_value(humidity),
+        "ppd42_particle_count": _round_value(ppd42_particle_count),
+        "ppd42_particle_size": _round_value(ppd42_particle_size),
     }
+
+    if pm_fields:
+        for field_name in PM_FIELDS:
+            if field_name in pm_fields:
+                record[field_name] = _round_value(pm_fields[field_name])
+
+    return record
 
 
 def build_live_payload(record):
-    return {field: record.get(field) for field in PAYLOAD_FIELDS}
+    payload = {field: record.get(field) for field in PAYLOAD_FIELDS}
+    for field in OPTIONAL_PAYLOAD_FIELDS:
+        if record.get(field) is not None:
+            payload[field] = record.get(field)
+    return payload
 
 
 def dumps_json(value):

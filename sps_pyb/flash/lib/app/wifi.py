@@ -35,12 +35,19 @@ class WiFiManager:
         self.connect_timeout_s = int(connect_timeout_s)
         self._wlan = None
 
+    def _station_interface_id(self):
+        if hasattr(network, "STA_IF"):
+            return network.STA_IF
+        if hasattr(network, "WLAN") and hasattr(network.WLAN, "IF_STA"):
+            return network.WLAN.IF_STA
+        raise RuntimeError("station Wi-Fi interface is unavailable")
+
     def _get_wlan(self):
         if network is None:
             raise RuntimeError("network module is unavailable")
 
         if self._wlan is None:
-            self._wlan = network.WLAN(network.STA_IF)
+            self._wlan = network.WLAN(self._station_interface_id())
             self._wlan.active(True)
 
         return self._wlan
@@ -78,3 +85,9 @@ class WiFiManager:
         if self.is_connected():
             return True
         return self.connect()
+
+    def ifconfig(self):
+        wlan = self._get_wlan()
+        if not wlan.isconnected():
+            return None
+        return wlan.ifconfig()
