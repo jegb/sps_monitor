@@ -1,8 +1,10 @@
 import unittest
 
 from sps_pyb.flash.lib.app.payload import (
+    CALIBRATION_PAYLOAD_FIELDS,
     PM_FIELDS,
     PAYLOAD_FIELDS,
+    build_calibration_payload,
     build_live_payload,
     build_mqtt_payload,
     build_sensor_record,
@@ -103,6 +105,32 @@ class PayloadTests(unittest.TestCase):
             "temp": 25.14,
             "humidity": 59.64,
         })
+
+    def test_build_calibration_payload_only_contains_fields_used_for_capture(self):
+        record = build_sensor_record(
+            "2026-04-17T12:00:00Z",
+            None,
+            25.14,
+            59.64,
+            pm_fields={"pm_2_5": 12.34567},
+            ppd42_particle_count=12.34567,
+            ppd42_particle_size=2.5,
+        )
+
+        payload = build_calibration_payload(record)
+
+        self.assertEqual(tuple(payload.keys()), CALIBRATION_PAYLOAD_FIELDS)
+        self.assertEqual(payload, {
+            "timestamp_utc": "2026-04-17T12:00:00Z",
+            "ppd42_particle_count": 12.3457,
+            "ppd42_particle_size": 2.5,
+            "temp": 25.14,
+            "humidity": 59.64,
+        })
+        self.assertNotIn("pm_1_0", payload)
+        self.assertNotIn("pm_2_5", payload)
+        self.assertNotIn("pm_4_0", payload)
+        self.assertNotIn("pm_10_0", payload)
 
 
 if __name__ == "__main__":

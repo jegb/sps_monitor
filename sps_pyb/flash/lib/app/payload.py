@@ -16,6 +16,13 @@ OPTIONAL_PAYLOAD_FIELDS = (
     "ppd42_particle_count",
     "ppd42_particle_size",
 )
+CALIBRATION_PAYLOAD_FIELDS = (
+    "timestamp_utc",
+    "ppd42_particle_count",
+    "ppd42_particle_size",
+    "temp",
+    "humidity",
+)
 
 
 def _round_value(value, digits=4):
@@ -81,6 +88,16 @@ def build_mqtt_payload(
             if value is not None:
                 payload[field] = value
 
+    return payload
+
+
+def build_calibration_payload(record):
+    payload = {}
+    for field in CALIBRATION_PAYLOAD_FIELDS:
+        value = record.get(field)
+        if value is None and field != "timestamp_utc":
+            continue
+        payload[field] = value
     return payload
 
 

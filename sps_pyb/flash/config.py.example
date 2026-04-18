@@ -39,7 +39,7 @@ DHT11_PIN = "X1"
 
 # Time sync
 NTP_ENABLED = True
-NTP_HOST = "pool.ntp.org"
+NTP_HOST = "pool.ntp.org"  # Comma-separated fallback hosts are supported
 
 # SD-backed history storage
 SD_HISTORY_ENABLED = True

@@ -13,11 +13,26 @@ from typing import Any
 
 DEFAULT_TARGET_FIELDS = ("pm_1_0", "pm_2_5", "pm_4_0", "pm_10_0")
 DEFAULT_SAMPLE_FIELD = "ppd42_particle_count"
+DEFAULT_MAX_TIMESTAMP_DRIFT_S = 24 * 60 * 60
 
 
 def parse_timestamp_utc(value: str | None, fallback: float) -> float:
     if not value:
         return float(fallback)
+
+
+def parse_timestamp_optional(value: str | None) -> float | None:
+    if not value:
+        return None
+
+    normalized = str(value).strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+
+    try:
+        return datetime.fromisoformat(normalized).timestamp()
+    except ValueError:
+        return None
 
     normalized = str(value).strip()
     if normalized.endswith("Z"):
@@ -47,13 +62,29 @@ def pair_payloads(
     max_skew_s: float,
     sample_field: str = DEFAULT_SAMPLE_FIELD,
     target_fields: tuple[str, ...] = DEFAULT_TARGET_FIELDS,
+    max_timestamp_drift_s: float = DEFAULT_MAX_TIMESTAMP_DRIFT_S,
 ) -> dict[str, Any] | None:
     sample_value = coerce_float(sample_payload.get(sample_field))
     if sample_value is None:
         return None
 
-    sample_event_time = parse_timestamp_utc(sample_payload.get("timestamp_utc"), sample_received_at)
-    reference_event_time = parse_timestamp_utc(reference_payload.get("timestamp_utc"), reference_received_at)
+    sample_timestamp = parse_timestamp_optional(sample_payload.get("timestamp_utc"))
+    reference_timestamp = parse_timestamp_optional(reference_payload.get("timestamp_utc"))
+
+    use_payload_timestamps = (
+        sample_timestamp is not None
+        and reference_timestamp is not None
+        and abs(sample_timestamp - float(sample_received_at)) <= float(max_timestamp_drift_s)
+        and abs(reference_timestamp - float(reference_received_at)) <= float(max_timestamp_drift_s)
+    )
+
+    if use_payload_timestamps:
+        sample_event_time = float(sample_timestamp)
+        reference_event_time = float(reference_timestamp)
+    else:
+        sample_event_time = float(sample_received_at)
+        reference_event_time = float(reference_received_at)
+
     pair_age_s = abs(sample_event_time - reference_event_time)
     if pair_age_s > float(max_skew_s):
         return None

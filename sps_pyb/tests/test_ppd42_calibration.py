@@ -40,11 +40,59 @@ class PPD42CalibrationTests(unittest.TestCase):
         row = pair_payloads(
             {"timestamp_utc": "2026-04-18T12:00:00Z", "ppd42_particle_count": 10.5},
             {"timestamp_utc": "2026-04-18T12:02:00Z", "pm_2_5": 2.0},
-            sample_received_at=1000.0,
-            reference_received_at=1005.0,
+            sample_received_at=1744977600.0,
+            reference_received_at=1744977720.0,
             max_skew_s=30.0,
         )
         self.assertIsNone(row)
+
+    def test_pair_payloads_falls_back_to_receive_times_when_reference_has_no_timestamp(self):
+        sample = {
+            "timestamp_utc": "2015-01-01T00:03:22Z",
+            "ppd42_particle_count": 18.3633,
+            "temp": 25.8259,
+            "humidity": 47.6714,
+        }
+        reference = {
+            "pm_1_0": 1.9,
+            "pm_2_5": 6.5,
+            "pm_4_0": 10.2,
+            "pm_10_0": 12.0,
+        }
+
+        row = pair_payloads(
+            sample,
+            reference,
+            sample_received_at=1000.0,
+            reference_received_at=1015.0,
+            max_skew_s=45.0,
+        )
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row["ppd42_particle_count"], 18.3633)
+        self.assertEqual(row["pm_2_5"], 6.5)
+        self.assertEqual(row["pair_age_s"], 15.0)
+
+    def test_pair_payloads_falls_back_to_receive_times_when_payload_clock_is_implausible(self):
+        sample = {
+            "timestamp_utc": "2015-01-01T00:03:22Z",
+            "ppd42_particle_count": 18.3633,
+        }
+        reference = {
+            "timestamp_utc": "2026-04-18T12:00:05Z",
+            "pm_2_5": 6.5,
+        }
+
+        row = pair_payloads(
+            sample,
+            reference,
+            sample_received_at=1000.0,
+            reference_received_at=1002.0,
+            max_skew_s=45.0,
+        )
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row["pair_age_s"], 2.0)
 
     def test_fit_linear_model_recovers_simple_line(self):
         model = fit_linear_model([(1.0, 3.0), (2.0, 5.0), (3.0, 7.0)])

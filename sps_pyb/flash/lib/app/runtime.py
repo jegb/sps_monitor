@@ -5,7 +5,7 @@ except ImportError:
 
 try:
     from .mqtt_client import MQTTPublisher
-    from .payload import PM_FIELDS, build_mqtt_payload, build_sensor_record
+    from .payload import PM_FIELDS, build_calibration_payload, build_mqtt_payload, build_sensor_record
     from .storage import StorageManager
     from .time_sync import TimeSync
     from .wifi import WiFiManager
@@ -17,7 +17,7 @@ try:
     from ..sensors.sps30 import SPS30Sensor
 except (ImportError, ValueError):
     from app.mqtt_client import MQTTPublisher
-    from app.payload import PM_FIELDS, build_mqtt_payload, build_sensor_record
+    from app.payload import PM_FIELDS, build_calibration_payload, build_mqtt_payload, build_sensor_record
     from app.storage import StorageManager
     from app.time_sync import TimeSync
     from app.wifi import WiFiManager
@@ -256,7 +256,7 @@ class StationRuntime:
     def _publish_record(self, client, record):
         client.publish(self.mqtt_topic, self._build_publish_payload(record))
         if self.mqtt_calibration_topic and self.mqtt_calibration_topic != self.mqtt_topic:
-            client.publish(self.mqtt_calibration_topic, record)
+            client.publish(self.mqtt_calibration_topic, build_calibration_payload(record))
 
     def _ensure_mqtt(self):
         if not self.mqtt_enabled or self.mqtt is None:
