@@ -3,7 +3,10 @@ import unittest
 from sps_pyb.tools.ppd42_calibration import (
     fit_linear_model,
     fit_models,
+    fit_multivariate_linear_model,
+    fit_multivariate_models,
     model_config_snippet,
+    multivariate_model_config_snippet,
     pair_payloads,
 )
 
@@ -118,6 +121,51 @@ class PPD42CalibrationTests(unittest.TestCase):
         self.assertIn("PPD42_LINEAR_PM_CALIBRATION", snippet)
         self.assertIn("'pm_2_5'", snippet)
         self.assertIn("1.23", snippet)
+
+    def test_fit_multivariate_linear_model_recovers_known_plane(self):
+        samples = [
+            ([1.0, 10.0, 100.0], 1.0 + (2.0 * 1.0) + (3.0 * 10.0) + (4.0 * 100.0)),
+            ([2.0, 10.0, 100.0], 1.0 + (2.0 * 2.0) + (3.0 * 10.0) + (4.0 * 100.0)),
+            ([1.0, 11.0, 100.0], 1.0 + (2.0 * 1.0) + (3.0 * 11.0) + (4.0 * 100.0)),
+            ([1.0, 10.0, 101.0], 1.0 + (2.0 * 1.0) + (3.0 * 10.0) + (4.0 * 101.0)),
+        ]
+        model = fit_multivariate_linear_model(
+            samples,
+            predictor_names=("ppd42_particle_count", "temp", "humidity"),
+        )
+        self.assertAlmostEqual(model["intercept"], 1.0)
+        self.assertAlmostEqual(model["coefficients"]["ppd42_particle_count"], 2.0)
+        self.assertAlmostEqual(model["coefficients"]["temp"], 3.0)
+        self.assertAlmostEqual(model["coefficients"]["humidity"], 4.0)
+        self.assertAlmostEqual(model["r2"], 1.0)
+
+    def test_fit_multivariate_models_builds_available_targets(self):
+        rows = [
+            {"ppd42_particle_count": 1.0, "temp": 20.0, "humidity": 40.0, "pm_2_5": 10.0},
+            {"ppd42_particle_count": 2.0, "temp": 21.0, "humidity": 40.5, "pm_2_5": 11.0},
+            {"ppd42_particle_count": 3.0, "temp": 20.5, "humidity": 42.0, "pm_2_5": 12.0},
+            {"ppd42_particle_count": 4.0, "temp": 22.0, "humidity": 41.25, "pm_2_5": 13.0},
+        ]
+        models = fit_multivariate_models(rows, target_fields=("pm_2_5", "pm_10_0"))
+        self.assertIn("pm_2_5", models)
+        self.assertNotIn("pm_10_0", models)
+
+    def test_multivariate_model_config_snippet_contains_coefficients(self):
+        snippet = multivariate_model_config_snippet({
+            "pm_2_5": {
+                "intercept": 1.0,
+                "coefficients": {
+                    "ppd42_particle_count": 2.0,
+                    "temp": 3.0,
+                    "humidity": 4.0,
+                },
+                "r2": 0.99,
+                "samples": 10,
+            },
+        })
+        self.assertIn("PPD42_MULTIVARIATE_PM_CALIBRATION", snippet)
+        self.assertIn("'pm_2_5'", snippet)
+        self.assertIn('"temp": 3.0', snippet)
 
 
 if __name__ == "__main__":

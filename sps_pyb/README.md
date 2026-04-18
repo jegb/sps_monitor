@@ -14,6 +14,20 @@ This target intentionally keeps only the device-side responsibilities:
 
 It does not include Flask, SQLite, `db_metrics`, Raspberry Pi GPIO helpers, Adafruit IO, or the Pi dashboard.
 
+## Status
+
+The current pyboard work proves out:
+
+- Wi-Fi + MQTT on `PYBD-SF6W`
+- environmental sensors such as `AHT10`
+- `PPD42` experimentation and host-side calibration tooling
+
+The `PPD42` path is experimental and did not prove strong enough for production PM estimation in this project.
+
+## TODO
+
+- port and validate the `SPS30` path on the pyboard later if the board is revisited as a real particulate node
+
 ## Layout
 
 ```text
@@ -326,13 +340,13 @@ In that setup:
 - `MQTT_TOPIC` keeps the `rpi_watch` contract
 - `MQTT_CALIBRATION_TOPIC` carries the internal record, including `ppd42_particle_count`
 
-Then capture paired rows from MQTT on the host:
+Then capture paired rows from MQTT on one host:
 
 ```sh
-python3 -m sps_pyb.tools.ppd42_calibration capture \
+./.venv-tools/bin/python -m sps_pyb.tools.ppd42_calibration capture \
   --broker-host 192.168.0.67 \
   --sample-topic airquality/sensor_ppd42_raw \
-  --reference-topic airquality/sps30_reference \
+  --reference-topic airquality/sensor \
   --output sps_pyb/calibration_ppd42.csv \
   --max-skew-s 45 \
   --max-pairs 200
@@ -341,7 +355,7 @@ python3 -m sps_pyb.tools.ppd42_calibration capture \
 That CSV can then be fit to linear models:
 
 ```sh
-python3 -m sps_pyb.tools.ppd42_calibration fit \
+./.venv-tools/bin/python -m sps_pyb.tools.ppd42_calibration fit \
   --input sps_pyb/calibration_ppd42.csv
 ```
 
@@ -349,6 +363,42 @@ The fit command prints:
 
 - JSON summary with `a`, `b`, `r2`, and sample count for each PM field
 - a `PPD42_LINEAR_PM_CALIBRATION` config snippet you can reuse later
+
+### Offline Split-Capture Workflow
+
+If you don't want the watch to subscribe to the raw `PPD42` topic permanently, keep:
+
+- `rpi_watch` logging `airquality/sensor` into `data/mqtt_records.jsonl`
+- the Mac logging `airquality/sensor_ppd42_raw` into a separate JSONL file
+
+Capture the raw `PPD42` stream on the Mac:
+
+```sh
+./.venv-tools/bin/python -m sps_pyb.tools.mqtt_trace \
+  --broker-host 192.168.0.67 \
+  --topic airquality/sensor_ppd42_raw \
+  --output sps_pyb/ppd42_raw.jsonl
+```
+
+Copy the watch receive log to the Mac:
+
+```sh
+scp pi@192.168.0.67:/home/pi/rpi_watch/data/mqtt_records.jsonl sps_pyb/watch_mqtt_records.jsonl
+```
+
+Then join the Mac trace with the copied watch JSONL archive into the training CSV:
+
+```sh
+./.venv-tools/bin/python -m sps_pyb.tools.join_traces \
+  --sample-input sps_pyb/ppd42_raw.jsonl \
+  --reference-input sps_pyb/watch_mqtt_records.jsonl \
+  --sample-topic airquality/sensor_ppd42_raw \
+  --reference-topic airquality/sensor \
+  --output sps_pyb/calibration_ppd42.csv \
+  --max-skew-s 45
+```
+
+That `calibration_ppd42.csv` can then be fit with the same `ppd42_calibration fit` command above.
 
 ### Temp-Only Bench Test
 

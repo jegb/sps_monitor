@@ -14,6 +14,7 @@ from typing import Any
 DEFAULT_TARGET_FIELDS = ("pm_1_0", "pm_2_5", "pm_4_0", "pm_10_0")
 DEFAULT_SAMPLE_FIELD = "ppd42_particle_count"
 DEFAULT_MAX_TIMESTAMP_DRIFT_S = 24 * 60 * 60
+DEFAULT_MULTIVARIATE_FIELDS = ("ppd42_particle_count", "temp", "humidity")
 
 
 def parse_timestamp_utc(value: str | None, fallback: float) -> float:
@@ -137,6 +138,99 @@ def fit_linear_model(samples: list[tuple[float, float]]) -> dict[str, float]:
     }
 
 
+def solve_linear_system(
+    matrix: list[list[float]],
+    vector: list[float],
+) -> list[float]:
+    size = len(matrix)
+    augmented = [row[:] + [vector[index]] for index, row in enumerate(matrix)]
+
+    for pivot_index in range(size):
+        pivot_row = max(
+            range(pivot_index, size),
+            key=lambda row_index: abs(augmented[row_index][pivot_index]),
+        )
+        if abs(augmented[pivot_row][pivot_index]) < 1e-12:
+            raise ValueError("Singular matrix")
+        if pivot_row != pivot_index:
+            augmented[pivot_index], augmented[pivot_row] = (
+                augmented[pivot_row],
+                augmented[pivot_index],
+            )
+
+        pivot = augmented[pivot_index][pivot_index]
+        for column_index in range(pivot_index, size + 1):
+            augmented[pivot_index][column_index] /= pivot
+
+        for row_index in range(size):
+            if row_index == pivot_index:
+                continue
+            factor = augmented[row_index][pivot_index]
+            if factor == 0.0:
+                continue
+            for column_index in range(pivot_index, size + 1):
+                augmented[row_index][column_index] -= (
+                    factor * augmented[pivot_index][column_index]
+                )
+
+    return [augmented[row_index][size] for row_index in range(size)]
+
+
+def fit_multivariate_linear_model(
+    samples: list[tuple[list[float], float]],
+    *,
+    predictor_names: tuple[str, ...],
+) -> dict[str, Any]:
+    if len(samples) < 2:
+        raise ValueError("At least two samples are required")
+
+    num_predictors = len(predictor_names)
+    if num_predictors == 0:
+        raise ValueError("At least one predictor is required")
+
+    features = [[1.0, *[float(value) for value in feature_row]] for feature_row, _ in samples]
+    targets = [float(target) for _, target in samples]
+
+    num_coefficients = num_predictors + 1
+    xtx = [[0.0 for _ in range(num_coefficients)] for _ in range(num_coefficients)]
+    xty = [0.0 for _ in range(num_coefficients)]
+
+    for feature_row, target in zip(features, targets):
+        for row_index in range(num_coefficients):
+            xty[row_index] += feature_row[row_index] * target
+            for column_index in range(num_coefficients):
+                xtx[row_index][column_index] += (
+                    feature_row[row_index] * feature_row[column_index]
+                )
+
+    coefficients = solve_linear_system(xtx, xty)
+    intercept = coefficients[0]
+    predictor_coefficients = coefficients[1:]
+
+    predictions = []
+    for feature_row in features:
+        prediction = sum(
+            coefficient * value
+            for coefficient, value in zip(coefficients, feature_row)
+        )
+        predictions.append(prediction)
+
+    mean_y = sum(targets) / len(targets)
+    ss_res = sum((actual - predicted) ** 2 for actual, predicted in zip(targets, predictions))
+    ss_tot = sum((actual - mean_y) ** 2 for actual in targets)
+    r2 = 1.0 if ss_tot == 0.0 else 1.0 - (ss_res / ss_tot)
+
+    return {
+        "intercept": round(intercept, 8),
+        "coefficients": {
+            name: round(value, 8)
+            for name, value in zip(predictor_names, predictor_coefficients)
+        },
+        "r2": round(r2, 6),
+        "samples": len(samples),
+    }
+
+
 def fit_models(
     rows: list[dict[str, Any]],
     *,
@@ -160,6 +254,41 @@ def fit_models(
     return models
 
 
+def fit_multivariate_models(
+    rows: list[dict[str, Any]],
+    *,
+    predictor_fields: tuple[str, ...] = DEFAULT_MULTIVARIATE_FIELDS,
+    target_fields: tuple[str, ...] = DEFAULT_TARGET_FIELDS,
+) -> dict[str, dict[str, Any]]:
+    models: dict[str, dict[str, Any]] = {}
+
+    for field_name in target_fields:
+        samples: list[tuple[list[float], float]] = []
+        for row in rows:
+            predictors: list[float] = []
+            skip_row = False
+            for predictor_name in predictor_fields:
+                value = coerce_float(row.get(predictor_name))
+                if value is None:
+                    skip_row = True
+                    break
+                predictors.append(value)
+
+            target_value = coerce_float(row.get(field_name))
+            if skip_row or target_value is None:
+                continue
+
+            samples.append((predictors, target_value))
+
+        if len(samples) >= 2:
+            models[field_name] = fit_multivariate_linear_model(
+                samples,
+                predictor_names=predictor_fields,
+            )
+
+    return models
+
+
 def model_config_snippet(models: dict[str, dict[str, float]]) -> str:
     lines = ["PPD42_LINEAR_PM_CALIBRATION = {"]
     for field_name in DEFAULT_TARGET_FIELDS:
@@ -169,6 +298,24 @@ def model_config_snippet(models: dict[str, dict[str, float]]) -> str:
         lines.append(
             "    %r: {\"a\": %s, \"b\": %s},"
             % (field_name, model["a"], model["b"])
+        )
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def multivariate_model_config_snippet(models: dict[str, dict[str, Any]]) -> str:
+    lines = ["PPD42_MULTIVARIATE_PM_CALIBRATION = {"]
+    for field_name in DEFAULT_TARGET_FIELDS:
+        model = models.get(field_name)
+        if model is None:
+            continue
+        coeffs = ", ".join(
+            f'"{name}": {value}'
+            for name, value in model["coefficients"].items()
+        )
+        lines.append(
+            '    %r: {"intercept": %s, "coefficients": {%s}},'
+            % (field_name, model["intercept"], coeffs)
         )
     lines.append("}")
     return "\n".join(lines)
@@ -334,6 +481,28 @@ def run_fit(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_fit_multi(args: argparse.Namespace) -> int:
+    predictor_fields = tuple(args.predictor_fields.split(","))
+    target_fields = tuple(args.target_fields.split(","))
+    rows = load_rows(args.input)
+    models = fit_multivariate_models(
+        rows,
+        predictor_fields=predictor_fields,
+        target_fields=target_fields,
+    )
+
+    result = {
+        "predictor_fields": predictor_fields,
+        "target_fields": target_fields,
+        "models": models,
+    }
+
+    print(json.dumps(result, indent=2, sort_keys=True))
+    print()
+    print(multivariate_model_config_snippet(models))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -356,6 +525,18 @@ def build_parser() -> argparse.ArgumentParser:
     fit.add_argument("--sample-field", default=DEFAULT_SAMPLE_FIELD)
     fit.add_argument("--target-fields", default=",".join(DEFAULT_TARGET_FIELDS))
     fit.set_defaults(func=run_fit)
+
+    fit_multi = subparsers.add_parser(
+        "fit-multi",
+        help="Fit multivariate PM models from captured CSV",
+    )
+    fit_multi.add_argument("--input", required=True)
+    fit_multi.add_argument(
+        "--predictor-fields",
+        default=",".join(DEFAULT_MULTIVARIATE_FIELDS),
+    )
+    fit_multi.add_argument("--target-fields", default=",".join(DEFAULT_TARGET_FIELDS))
+    fit_multi.set_defaults(func=run_fit_multi)
 
     return parser
 
