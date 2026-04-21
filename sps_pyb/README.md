@@ -50,6 +50,7 @@ The board publishes raw sensor values only:
 
 ```json
 {
+  "timestamp_utc": "2026-04-21T12:00:00Z",
   "pm_1_0": 1.2,
   "pm_2_5": 2.3,
   "pm_4_0": 3.4,

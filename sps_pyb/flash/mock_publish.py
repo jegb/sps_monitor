@@ -30,7 +30,9 @@ except ImportError:
 def build_mock_payload(sequence):
     sequence = int(sequence)
     phase = sequence % 12
+    minute = sequence % 60
     return {
+        "timestamp_utc": "2026-04-21T12:%02d:00Z" % minute,
         "pm_1_0": round(1.0 + 0.2 * phase, 1),
         "pm_2_5": round(2.0 + 0.5 * phase, 1),
         "pm_4_0": round(3.5 + 0.7 * phase, 1),

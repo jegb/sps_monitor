@@ -2,8 +2,8 @@ import unittest
 
 from sps_pyb.flash.lib.app.payload import (
     CALIBRATION_PAYLOAD_FIELDS,
+    LIVE_PAYLOAD_FIELDS,
     PM_FIELDS,
-    PAYLOAD_FIELDS,
     build_calibration_payload,
     build_live_payload,
     build_mqtt_payload,
@@ -27,7 +27,8 @@ class PayloadTests(unittest.TestCase):
 
         payload = build_live_payload(record)
 
-        self.assertEqual(tuple(payload.keys()), PAYLOAD_FIELDS)
+        self.assertEqual(tuple(payload.keys()), LIVE_PAYLOAD_FIELDS)
+        self.assertEqual(payload["timestamp_utc"], "2026-04-17T12:00:00Z")
         self.assertEqual(payload["pm_1_0"], 1.24)
         self.assertEqual(payload["pm_2_5"], 2.35)
         self.assertEqual(payload["pm_4_0"], 3.46)
@@ -101,6 +102,7 @@ class PayloadTests(unittest.TestCase):
         )
 
         self.assertEqual(payload, {
+            "timestamp_utc": "2026-04-17T12:00:00Z",
             "pm_2_5": 12.3457,
             "temp": 25.14,
             "humidity": 59.64,

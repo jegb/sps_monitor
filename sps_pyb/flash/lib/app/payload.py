@@ -3,6 +3,7 @@ try:
 except ImportError:
     import ujson as json
 
+TIMESTAMP_FIELD = "timestamp_utc"
 PAYLOAD_FIELDS = (
     "pm_1_0",
     "pm_2_5",
@@ -11,13 +12,14 @@ PAYLOAD_FIELDS = (
     "temp",
     "humidity",
 )
+LIVE_PAYLOAD_FIELDS = (TIMESTAMP_FIELD,) + PAYLOAD_FIELDS
 PM_FIELDS = PAYLOAD_FIELDS[:4]
 OPTIONAL_PAYLOAD_FIELDS = (
     "ppd42_particle_count",
     "ppd42_particle_size",
 )
 CALIBRATION_PAYLOAD_FIELDS = (
-    "timestamp_utc",
+    TIMESTAMP_FIELD,
     "ppd42_particle_count",
     "ppd42_particle_size",
     "temp",
@@ -41,7 +43,7 @@ def build_sensor_record(
     ppd42_particle_size=None,
 ):
     record = {
-        "timestamp_utc": timestamp_utc,
+        TIMESTAMP_FIELD: timestamp_utc,
         "pm_1_0": _round_value(None if pm_data is None else pm_data["mc_1p0"]),
         "pm_2_5": _round_value(None if pm_data is None else pm_data["mc_2p5"]),
         "pm_4_0": _round_value(None if pm_data is None else pm_data["mc_4p0"]),
@@ -61,7 +63,9 @@ def build_sensor_record(
 
 
 def build_live_payload(record):
-    payload = {field: record.get(field) for field in PAYLOAD_FIELDS}
+    payload = {TIMESTAMP_FIELD: record.get(TIMESTAMP_FIELD)}
+    for field in PAYLOAD_FIELDS:
+        payload[field] = record.get(field)
     for field in OPTIONAL_PAYLOAD_FIELDS:
         if record.get(field) is not None:
             payload[field] = record.get(field)
@@ -74,7 +78,7 @@ def build_mqtt_payload(
     include_optional_fields=True,
     drop_null_fields=False,
 ):
-    payload = {}
+    payload = {TIMESTAMP_FIELD: record.get(TIMESTAMP_FIELD)}
 
     for field in PAYLOAD_FIELDS:
         value = record.get(field)
@@ -95,7 +99,7 @@ def build_calibration_payload(record):
     payload = {}
     for field in CALIBRATION_PAYLOAD_FIELDS:
         value = record.get(field)
-        if value is None and field != "timestamp_utc":
+        if value is None and field != TIMESTAMP_FIELD:
             continue
         payload[field] = value
     return payload

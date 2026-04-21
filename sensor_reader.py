@@ -2,6 +2,7 @@ import json
 import time
 import logging
 import sqlite3
+from datetime import datetime, timezone
 import paho.mqtt.publish as publish
 import random
 from board_detect import init_board
@@ -70,6 +71,10 @@ class FakeMeasurement:
 
 DB_FILE = "sps30_data.db"
 
+
+def utc_timestamp():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
 def generate_fake_readings():
     return {
         "mc_1p0": round(random.uniform(0.5, 10.0), 1),
@@ -95,8 +100,17 @@ def store_to_db(pm_data, temp, humidity, particle_count=None, particle_size=None
     conn.commit()
     conn.close()
 
-def publish_to_mqtt(pm_data, temp, humidity, particle_count=None, particle_size=None, derived_metrics=None):
+def publish_to_mqtt(
+    pm_data,
+    temp,
+    humidity,
+    particle_count=None,
+    particle_size=None,
+    derived_metrics=None,
+    timestamp_utc=None,
+):
     payload = {
+        "timestamp_utc": timestamp_utc or utc_timestamp(),
         "pm_1_0": round(pm_data.mc_1p0, 1),
         "pm_2_5": round(pm_data.mc_2p5, 1),
         "pm_4_0": round(pm_data.mc_4p0, 1),
@@ -212,6 +226,7 @@ def main():
                     logging.info(f"PPD42 (PM{particle_size}): {particle_count} pcs/0.01cf")
 
         if logging_enabled and pm_data:
+            sample_timestamp_utc = utc_timestamp()
             store_to_db(pm_data, temp, humidity, particle_count, particle_size)
             refresh_daily_averages(DB_FILE, days=2)
             derived_metrics = build_mqtt_derived_metrics(DB_FILE)
@@ -224,6 +239,7 @@ def main():
                         particle_count,
                         particle_size,
                         derived_metrics=derived_metrics,
+                        timestamp_utc=sample_timestamp_utc,
                     )
                 except Exception as e:
                     logging.warning(f"Failed to publish to MQTT: {e}")

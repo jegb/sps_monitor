@@ -1,6 +1,6 @@
 import unittest
 
-from pizerow.app.payload import PAYLOAD_FIELDS, build_live_payload, build_sensor_record
+from pizerow.app.payload import LIVE_PAYLOAD_FIELDS, build_live_payload, build_sensor_record
 
 
 class PayloadTests(unittest.TestCase):
@@ -19,7 +19,8 @@ class PayloadTests(unittest.TestCase):
 
         payload = build_live_payload(record)
 
-        self.assertEqual(tuple(payload.keys()), PAYLOAD_FIELDS)
+        self.assertEqual(tuple(payload.keys()), LIVE_PAYLOAD_FIELDS)
+        self.assertEqual(payload["timestamp_utc"], "2026-04-17T12:00:00Z")
         self.assertEqual(payload["pm_1_0"], 1.2)
         self.assertEqual(payload["pm_2_5"], 2.4)
         self.assertEqual(payload["pm_4_0"], 3.5)
